@@ -24,6 +24,9 @@ export interface Profile {
   role: UserRole;
   points: number;
   level: number;
+  // optional derived stats
+  total_contributions?: number;
+  rank?: number | string;
   created_at: string;
   updated_at: string;
 }
