@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Music, Menu, X, User, LogOut } from 'lucide-react';
-import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Music, Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import Button from "@/components/ui/Button";
 
 const navigation = [
-  { name: 'Accueil', href: '/' },
-  { name: 'Parcourir', href: '/songs' },
-  { name: 'Contribuer', href: '/contribute' },
-  { name: 'Classement', href: '/leaderboard' },
+  { name: "Accueil", href: "/" },
+  { name: "Parcourir", href: "/songs" },
+  { name: "Contribuer", href: "/contribute" },
+  { name: "Classement", href: "/leaderboard" },
 ];
 
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // TODO: Get user from Supabase auth
-  const user = null;
+  const { user, profile, isLoading, signOut } = useAuth();
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-label="Top">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
               <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-lg">
@@ -35,17 +35,14 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:gap-x-8">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'text-sm font-medium transition-colors',
-                  pathname === item.href
-                    ? 'text-purple-600'
-                    : 'text-gray-700 hover:text-purple-600'
+                  "text-sm font-medium transition-colors",
+                  pathname === item.href ? "text-purple-600" : "text-gray-700 hover:text-purple-600"
                 )}
               >
                 {item.name}
@@ -53,39 +50,46 @@ export default function Header() {
             ))}
           </div>
 
-          {/* Auth Buttons / User Menu */}
           <div className="hidden md:flex md:items-center md:gap-x-4">
-            {user ? (
+            {isLoading ? (
+              <div className="h-8 w-24 bg-gray-200 animate-pulse rounded-lg"></div>
+            ) : user ? (
               <div className="flex items-center gap-4">
                 <Link
                   href="/dashboard"
-                  className="text-sm font-medium text-gray-700 hover:text-purple-600"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-purple-600"
                 >
+                  <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Link>
-                <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-                  <User className="h-5 w-5" />
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center text-white text-sm font-medium">
+                    {profile?.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {profile?.username || user.email?.split("@")[0]}
+                  </span>
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className="text-gray-500 hover:text-gray-700"
+                  title="Deconnexion"
+                >
+                  <LogOut className="h-5 w-5" />
                 </button>
               </div>
             ) : (
               <>
-                <Link
-                  href="/auth/login"
-                  className="text-sm font-medium text-gray-700 hover:text-purple-600"
-                >
-                  Connexion
+                <Link href="/auth/login">
+                  <Button variant="ghost" size="sm">Connexion</Button>
                 </Link>
-                <Link
-                  href="/auth/register"
-                  className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-                >
-                  S&apos;inscrire
+                <Link href="/auth/register">
+                  <Button size="sm">S inscrire</Button>
                 </Link>
               </>
             )}
           </div>
 
-          {/* Mobile menu button */}
           <div className="flex md:hidden">
             <button
               type="button"
@@ -93,16 +97,11 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               <span className="sr-only">Ouvrir le menu</span>
-              {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col gap-4">
@@ -110,12 +109,7 @@ export default function Header() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={cn(
-                    'text-base font-medium',
-                    pathname === item.href
-                      ? 'text-purple-600'
-                      : 'text-gray-700'
-                  )}
+                  className={cn("text-base font-medium", pathname === item.href ? "text-purple-600" : "text-gray-700")}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
@@ -131,9 +125,15 @@ export default function Header() {
                   >
                     Dashboard
                   </Link>
-                  <button className="flex items-center gap-2 text-base text-gray-500">
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 text-base text-gray-500"
+                  >
                     <LogOut className="h-5 w-5" />
-                    Déconnexion
+                    Deconnexion
                   </button>
                 </>
               ) : (
@@ -150,7 +150,7 @@ export default function Header() {
                     className="text-base font-medium text-purple-600"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    S&apos;inscrire
+                    S inscrire
                   </Link>
                 </>
               )}
