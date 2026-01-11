@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LyricSync
 
-## Getting Started
+> Plateforme collaborative de synchronisation paroles-audio pour la musique gospel francophone
 
-First, run the development server:
+## A propos
+
+LyricSync combine l intelligence artificielle (Whisper) et la puissance de la communaute pour creer des paroles synchronisees de haute qualite pour la musique gospel francophone.
+
+### Fonctionnalites principales
+
+- Interface Tap-to-Sync : Synchronisez les paroles en temps reel
+- IA Whisper : Generation automatique de brouillons LRC
+- Communaute : Systeme de points, badges et classement
+- API REST : Integration facile avec d autres applications
+- Validation : Processus de qualite rigoureux
+
+## Demarrage rapide
+
+### Prerequis
+
+- Node.js 18+
+- npm ou yarn
+- Compte Supabase (gratuit)
+
+### Installation
 
 ```bash
+# Cloner le depot
+git clone https://github.com/kennykah/lyricsync.git
+cd lyricsync
+
+# Installer les dependances
+npm install
+
+# Copier le fichier d environnement
+cp .env.example .env.local
+
+# Lancer le serveur de developpement
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir http://localhost:3000 dans votre navigateur.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack technique
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Frontend : Next.js 15, React, TypeScript, Tailwind CSS
+- Backend : Next.js API Routes
+- Base de donnees : Supabase (PostgreSQL)
+- Auth : Supabase Auth
+- IA : OpenAI Whisper (Phase 2)
+- Deploiement : Vercel
 
-## Learn More
+## Integration avec Gospel Lyrics
 
-To learn more about Next.js, take a look at the following resources:
+LyricSync est concu pour s integrer avec Gospel Lyrics (https://gospel-lyrics.vercel.app) mais reste une plateforme independante.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Ce projet est sous licence MIT.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Fait avec amour pour la musique gospel francophone
