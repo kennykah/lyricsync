@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 
 export default function DashboardPage() {
   const { user, profile, isLoading } = useAuth();
