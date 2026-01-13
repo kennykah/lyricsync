@@ -22,7 +22,6 @@ export default function Waveform({ src, onSeek }: WaveformProps) {
       progressColor: "#ec4899",
       height: 80,
       barWidth: 2,
-      responsive: true,
       cursorColor: "#9333ea",
       backend: "MediaElement",
     });
