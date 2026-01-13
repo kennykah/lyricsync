@@ -24,7 +24,7 @@ export default function Waveform({ src, onSeek }: WaveformProps) {
       barWidth: 2,
       responsive: true,
       cursorColor: "#9333ea",
-      backend: "mediaelement",
+      backend: "MediaElement",
     });
     waveSurferRef.current.load(src);
     waveSurferRef.current.on("seek", (progress: number) => {
