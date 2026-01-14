@@ -16,9 +16,19 @@ const navigation = [
 ];
 
 export default function Header() {
+
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, profile, isLoading, signOut } = useAuth();
+  const [forceShowAuth, setForceShowAuth] = useState(false);
+
+  // Fallback si le chargement dure trop longtemps
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) setForceShowAuth(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -51,7 +61,7 @@ export default function Header() {
           </div>
 
           <div className="hidden md:flex md:items-center md:gap-x-4">
-            {isLoading ? (
+            {isLoading && !forceShowAuth ? (
               <div className="h-8 w-24 bg-gray-200 animate-pulse rounded-lg"></div>
             ) : user ? (
               <div className="flex items-center gap-4">
