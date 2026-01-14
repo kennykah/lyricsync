@@ -26,10 +26,10 @@ export default function Waveform({ src, onSeek }: WaveformProps) {
       backend: "MediaElement",
     });
     waveSurferRef.current.load(src);
-    waveSurferRef.current.on("seek", (progress: number) => {
+    waveSurferRef.current.on("interaction", () => {
       if (waveSurferRef.current && onSeek) {
-        const duration = waveSurferRef.current.getDuration();
-        onSeek(progress * duration);
+        const time = waveSurferRef.current.getCurrentTime();
+        onSeek(time);
       }
     });
     return () => {
