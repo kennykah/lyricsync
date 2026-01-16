@@ -81,23 +81,16 @@ export default function UploadPage() {
 
       console.log("Starting upload...", { fileName, fileSize: audioFile.size });
 
-      // Upload audio to Supabase Storage with timeout
-      const uploadPromise = supabase.storage
+      // Upload audio to Supabase Storage
+      // No timeout - let Supabase handle it
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("audio")
         .upload(fileName, audioFile, {
           cacheControl: "3600",
           upsert: false,
         });
 
-      // Add timeout of 60 seconds
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Upload timeout - le fichier met trop de temps à s'uploader")), 60000);
-      });
-
-      const { data: uploadData, error: uploadError } = await Promise.race([
-        uploadPromise,
-        timeoutPromise,
-      ]).catch((err) => ({ data: null, error: { message: err.message } })) as { data: unknown; error: { message: string } | null };
+      console.log("Upload result:", { uploadData, uploadError });
 
       if (uploadError) {
         // Handle specific errors
