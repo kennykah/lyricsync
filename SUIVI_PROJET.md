@@ -116,6 +116,8 @@
 | `/contribute` | `src/app/contribute/page.tsx` | ✅ Fonctionnel |
 | `/api-docs` | `src/app/api-docs/page.tsx` | ✅ Fonctionnel |
 | `/my-contributions` | `src/app/my-contributions/page.tsx` | ✅ Fonctionnel |
+| `/validate` | `src/app/validate/page.tsx` | ✅ Fonctionnel |
+| `/admin/users` | `src/app/admin/users/page.tsx` | ✅ Fonctionnel |
 | `/profile` | - | ❌ **À créer** |
 
 ### API Routes créées
