@@ -219,11 +219,15 @@ export default function SyncEditorPage() {
         return;
       }
 
-      // Update song status to "synced"
-      await supabase
+      // Update song status to "pending_validation"
+      const { error: statusError } = await supabase
         .from("songs")
-        .update({ status: "synced" })
+        .update({ status: "pending_validation" })
         .eq("id", songId);
+
+      if (statusError) {
+        console.error("Status update error:", statusError);
+      }
 
       setSuccess("Synchronisation enregistrée avec succès !");
       setIsSyncing(false);

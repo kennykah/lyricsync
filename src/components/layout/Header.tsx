@@ -72,6 +72,14 @@ export default function Header() {
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Link>
+                {(profile?.role === "validator" || profile?.role === "admin") && (
+                  <Link
+                    href="/validate"
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-purple-600"
+                  >
+                    ✅ Valider
+                  </Link>
+                )}
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center text-white text-sm font-medium">
                     {profile?.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
@@ -135,6 +143,15 @@ export default function Header() {
                   >
                     Dashboard
                   </Link>
+                  {(profile?.role === "validator" || profile?.role === "admin") && (
+                    <Link
+                      href="/validate"
+                      className="text-base font-medium text-gray-700"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      ✅ Valider
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       signOut();
