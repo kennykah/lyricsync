@@ -67,26 +67,51 @@ export default function SyncEditorPage() {
       setIsLoading(true);
       setError("");
 
-      const { data, error: fetchError } = await supabase
-        .from("songs")
-        .select("*")
-        .eq("id", songId)
-        .single();
+      console.log("Fetching song with ID:", songId);
 
-      if (fetchError) {
-        setError("Erreur lors du chargement de la chanson: " + fetchError.message);
+      try {
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((_, resolve) => {
+          setTimeout(() => resolve({ data: null, error: { message: "timeout", code: "TIMEOUT" } }), 10000);
+        });
+
+        const fetchPromise = supabase
+          .from("songs")
+          .select("*")
+          .eq("id", songId)
+          .single();
+
+        const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]);
+
+        console.log("Fetch result:", { data, error: fetchError });
+
+        if (fetchError) {
+          console.error("Fetch error:", fetchError);
+          if (fetchError.code === "PGRST116") {
+            setError("Chanson introuvable (ID: " + songId + ")");
+          } else if (fetchError.code === "TIMEOUT") {
+            setError("Le chargement a pris trop de temps. Veuillez réessayer.");
+          } else {
+            setError("Erreur lors du chargement: " + fetchError.message);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (!data) {
+          setError("Chanson introuvable");
+          setIsLoading(false);
+          return;
+        }
+
+        console.log("Song loaded:", data.title);
+        setSong(data);
         setIsLoading(false);
-        return;
-      }
-
-      if (!data) {
-        setError("Chanson introuvable");
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        setError("Une erreur inattendue s'est produite");
         setIsLoading(false);
-        return;
       }
-
-      setSong(data);
-      setIsLoading(false);
     };
 
     fetchSong();
