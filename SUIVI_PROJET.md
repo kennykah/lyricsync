@@ -1,6 +1,6 @@
 # 📊 Suivi de Progression - LyricSync
 
-> Dernière mise à jour : 15 janvier 2026
+> Dernière mise à jour : 19 janvier 2026
 
 ---
 
@@ -9,7 +9,7 @@
 | Métrique | Valeur |
 |----------|--------|
 | **Phase actuelle** | Phase 1 - MVP |
-| **Progression globale** | 45% |
+| **Progression globale** | 70% |
 | **Statut** | 🟢 En cours |
 
 ---
@@ -36,17 +36,19 @@
 | Créer les tables de base | ✅ Terminé | 11/01/2026 | schema.sql exécuté |
 | Design system de base | ✅ Terminé | 11/01/2026 | Composants Button, Input, Card |
 | Déployer sur Vercel | ✅ Terminé | 11/01/2026 | lyricsync-three.vercel.app |
-| Configurer l'authentification | ✅ Terminé | 15/01/2026 | AuthProvider fonctionnel |
+| Configurer l'authentification | ✅ Terminé | 15/01/2026 | AuthProvider + Middleware SSR |
+| Middleware Next.js | ✅ Terminé | 15/01/2026 | Protection routes + refresh session |
 
 ### Semaine 3-4 : Upload & Sync Interface
 
 | Tâche | Statut | Date | Notes |
 |-------|--------|------|-------|
-| Interface d'upload audio + paroles | ✅ Terminé | 11/01/2026 | Page /upload créée |
+| Interface d'upload audio + paroles | ✅ Terminé | 16/01/2026 | Validation, progress bar, gestion erreurs |
 | Lecteur audio avec contrôles | ✅ Terminé | 15/01/2026 | Howler.js avec play/pause, skip, volume, vitesse |
 | Interface tap-to-sync basique | ✅ Terminé | 15/01/2026 | Raccourcis clavier (Espace, Ctrl+Z, Échap) |
 | Sauvegarde des timestamps | ✅ Terminé | 15/01/2026 | Intégration Supabase |
 | Visualisation waveform | ✅ Terminé | 15/01/2026 | WaveSurfer.js avec synchronisation |
+| Configuration Storage Supabase | ✅ Terminé | 16/01/2026 | Bucket "audio" + politiques RLS |
 
 ### Semaine 5-6 : Validation & Export
 
@@ -107,11 +109,14 @@
 | `/auth/register` | `src/app/auth/register/page.tsx` | ✅ Fonctionnel |
 | `/about` | `src/app/about/page.tsx` | ✅ Fonctionnel |
 | `/dashboard` | `src/app/dashboard/page.tsx` | ✅ Fonctionnel |
-| `/upload` | `src/app/upload/page.tsx` | ✅ Fonctionnel |
+| `/upload` | `src/app/upload/page.tsx` | ✅ Fonctionnel (amélioré) |
 | `/sync/[id]` | `src/app/sync/[id]/page.tsx` | ✅ Fonctionnel |
-| `/songs` | - | ❌ À créer |
-| `/leaderboard` | - | ❌ À créer |
-| `/contribute` | - | ❌ À créer |
+| `/songs` | `src/app/songs/page.tsx` | ✅ Fonctionnel |
+| `/leaderboard` | `src/app/leaderboard/page.tsx` | ✅ Fonctionnel |
+| `/contribute` | `src/app/contribute/page.tsx` | ✅ Fonctionnel |
+| `/api-docs` | `src/app/api-docs/page.tsx` | ✅ Fonctionnel |
+| `/my-contributions` | `src/app/my-contributions/page.tsx` | ✅ Fonctionnel |
+| `/profile` | - | ❌ **À créer** |
 
 ### API Routes créées
 
@@ -137,6 +142,17 @@
 | Waveform | `src/components/ui/Waveform.tsx` | ✅ Amélioré (sync avec player) |
 | SyncEditor | Intégré dans `/sync/[id]` | ✅ Fonctionnel |
 | LyricsDisplay | - | ❌ À créer |
+
+### Fichiers de configuration
+
+| Fichier | Description | Statut |
+|---------|-------------|--------|
+| `src/middleware.ts` | Middleware Next.js pour auth | ✅ Créé |
+| `src/lib/supabase/client.ts` | Client Supabase navigateur | ✅ Corrigé (createBrowserClient) |
+| `src/lib/supabase/server.ts` | Client Supabase serveur | ✅ Fonctionnel |
+| `src/lib/supabase/middleware.ts` | Utilitaires middleware | ✅ Fonctionnel |
+| `src/lib/auth/AuthProvider.tsx` | Context authentification | ✅ Amélioré |
+| `supabase/storage-policies.sql` | Politiques bucket audio | ✅ Créé |
 
 ---
 
@@ -166,10 +182,37 @@
 | Sync page - songId via searchParams | Haute | ✅ Corrigé | 15/01/2026 |
 | Sync page - audioTime jamais mis à jour | Haute | ✅ Corrigé | 15/01/2026 |
 | API utilisant mock data | Moyenne | ✅ Corrigé | 15/01/2026 |
+| Middleware manquant (auth ne fonctionnait pas) | Haute | ✅ Corrigé | 15/01/2026 |
+| Client Supabase navigateur incorrect | Haute | ✅ Corrigé | 15/01/2026 |
+| Upload bloqué (timeout trop court) | Haute | ✅ Corrigé | 16/01/2026 |
+| Bucket "audio" inexistant | Haute | ✅ Corrigé | 16/01/2026 |
 
 ---
 
 ## 📝 Notes de développement
+
+### 16/01/2026 - Configuration Storage & Upload
+- Créé le bucket "audio" dans Supabase Storage
+- Créé le fichier `supabase/storage-policies.sql` avec les politiques RLS :
+  - `allow_authenticated_uploads` : INSERT pour utilisateurs authentifiés
+  - `allow_public_read` : SELECT pour tous
+  - `allow_owner_update` : UPDATE pour propriétaires
+  - `allow_owner_delete` : DELETE pour propriétaires
+- Corrigé le timeout d'upload qui bloquait à 20%
+- Amélioré la page upload avec :
+  - Barre de progression
+  - Validation type/taille fichier
+  - Messages d'erreur explicites
+  - Redirection vers /sync/[id] après upload
+
+### 15/01/2026 - Corrections Authentification
+- Créé `src/middleware.ts` pour activer le middleware Supabase
+- Corrigé `src/lib/supabase/client.ts` : utilisation de `createBrowserClient`
+- Amélioré `AuthProvider.tsx` :
+  - Client Supabase créé une seule fois (useMemo)
+  - Callbacks mémorisés (useCallback)
+  - Ajout `router.refresh()` pour rafraîchir après déconnexion
+  - Meilleure gestion des erreurs
 
 ### 15/01/2026 - Corrections critiques & Améliorations
 - Corrigé l'import manquant de `useEffect` dans Header.tsx
@@ -203,22 +246,44 @@
 
 ---
 
+## ✅ Pages créées récemment (19/01/2026)
+
+| Route | Description | Statut |
+|-------|-------------|--------|
+| `/songs` | Liste des chansons avec recherche et filtres | ✅ Créé |
+| `/contribute` | Interface pour choisir une chanson à synchroniser | ✅ Créé |
+| `/leaderboard` | Classement des contributeurs avec podium | ✅ Créé |
+| `/api-docs` | Documentation complète de l'API REST | ✅ Créé |
+| `/my-contributions` | Historique des contributions de l'utilisateur | ✅ Créé |
+
+---
+
+## 🚨 Pages manquantes (404)
+
+Ces pages sont référencées dans le code mais n'existent pas encore :
+
+| Route | Référencé depuis | Priorité |
+|-------|-----------------|----------|
+| `/profile` | middleware.ts | 🟡 Moyenne |
+| `/auth/forgot-password` | login/page.tsx | 🟢 Basse |
+
+---
+
 ## 🎯 Prochaines étapes
 
 1. **Pages à créer:**
-   - `/songs` - Liste des chansons à synchroniser
-   - `/contribute` - Choisir une chanson à synchroniser
-   - `/leaderboard` - Classement des contributeurs
+   - `/profile` - Profil utilisateur
+   - `/auth/forgot-password` - Récupération de mot de passe
 
 2. **Fonctionnalités:**
    - Interface de validation des synchronisations
-   - Système de points et badges
-   - Profils utilisateurs
+   - Système de points et badges actif
+   - Intégration avec Gospel Lyrics
 
 3. **Améliorations:**
    - Tests end-to-end
-   - Documentation API
    - Optimisation performance
+   - Mobile responsive avancé
 
 ---
 
@@ -227,7 +292,7 @@
 | KPI | Cible M3 | Cible M6 | Cible M12 | Actuel |
 |-----|----------|----------|-----------|--------|
 | Chansons publiées | 50 | 150 | 500 | 0 |
-| Contributeurs actifs | 10 | 50 | 100 | 0 |
+| Contributeurs actifs | 10 | 50 | 100 | 1 |
 | Artistes inscrits | 3 | 15 | 50 | 0 |
 | Requêtes API/jour | 100 | 1,000 | 10,000 | - |
 
