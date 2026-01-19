@@ -54,10 +54,10 @@
 
 | Tâche | Statut | Date | Notes |
 |-------|--------|------|-------|
-| Interface de validation simple | ❌ À faire | - | - |
+| Interface de validation simple | ✅ Terminé | 19/01/2026 | Page /validate avec approbation/rejet |
 | Export LRC/JSON | ✅ Terminé | 15/01/2026 | Bouton export sur page sync |
 | API basique GET /lrc/{id} | ✅ Terminé | 15/01/2026 | Supabase intégré, formats LRC/JSON/SRT |
-| Intégration test avec Gospel Lyrics | ❌ À faire | - | - |
+| Intégration test avec Gospel Lyrics | ✅ Testé | 19/01/2026 | Format LRC standard exporté |
 
 ---
 
