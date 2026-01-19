@@ -51,6 +51,7 @@ export default function SyncEditorPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [audioTime, setAudioTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
@@ -143,6 +144,16 @@ export default function SyncEditorPage() {
     audioPlayerRef.current?.play();
   }, [song, lines.length]);
 
+  // Auto-scroll to current line
+  useEffect(() => {
+    if (isSyncing && currentLine > 0) {
+      const lineElement = document.getElementById(`line-${currentLine}`);
+      if (lineElement) {
+        lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [currentLine, isSyncing]);
+
   // Tap to sync current line
   const handleTap = useCallback(() => {
     if (!isSyncing || currentLine >= lines.length) return;
@@ -174,38 +185,54 @@ export default function SyncEditorPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     setError("");
 
-    // Generate LRC raw format
-    const lrcRaw = syncedLyrics
-      .map((line) => {
-        const mins = Math.floor(line.time / 60);
-        const secs = (line.time % 60).toFixed(2).padStart(5, "0");
-        return `[${mins.toString().padStart(2, "0")}:${secs}]${line.text}`;
-      })
-      .join("\n");
+    try {
+      // Generate LRC raw format
+      const lrcRaw = syncedLyrics
+        .map((line) => {
+          const mins = Math.floor(line.time / 60);
+          const secs = (line.time % 60).toFixed(2).padStart(5, "0");
+          return `[${mins.toString().padStart(2, "0")}:${secs}]${line.text}`;
+        })
+        .join("\n");
 
-    const { error: lrcError } = await supabase.from("lrc_files").upsert(
-      {
-        song_id: songId,
-        synced_lyrics: syncedLyrics,
-        lrc_raw: lrcRaw,
-        source: "manual",
-        created_by: user?.id,
-      },
-      { onConflict: "song_id" }
-    );
+      console.log("Saving LRC...", { songId, linesCount: syncedLyrics.length });
 
-    setIsLoading(false);
+      const { error: lrcError } = await supabase.from("lrc_files").upsert(
+        {
+          song_id: songId,
+          synced_lyrics: syncedLyrics,
+          lrc_raw: lrcRaw,
+          source: "manual",
+          created_by: user?.id,
+        },
+        { onConflict: "song_id" }
+      );
 
-    if (lrcError) {
-      setError("Erreur lors de la sauvegarde : " + lrcError.message);
-      return;
+      console.log("Save result:", { error: lrcError });
+
+      if (lrcError) {
+        setError("Erreur lors de la sauvegarde : " + lrcError.message);
+        setIsSaving(false);
+        return;
+      }
+
+      // Update song status to "synced"
+      await supabase
+        .from("songs")
+        .update({ status: "synced" })
+        .eq("id", songId);
+
+      setSuccess("Synchronisation enregistrée avec succès !");
+      setIsSyncing(false);
+      setIsSaving(false);
+    } catch (err) {
+      console.error("Save error:", err);
+      setError("Erreur inattendue lors de la sauvegarde");
+      setIsSaving(false);
     }
-
-    setSuccess("Synchronisation enregistrée avec succès !");
-    setIsSyncing(false);
   }, [songId, syncedLyrics, supabase, user?.id]);
 
   // Export LRC file
@@ -535,11 +562,11 @@ export default function SyncEditorPage() {
                       </>
                     ) : (
                       <>
-                        <Button onClick={handleSave} size="lg" isLoading={isLoading} className="w-full">
+                        <Button onClick={handleSave} size="lg" isLoading={isSaving} disabled={isSaving} className="w-full">
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          Sauvegarder la synchronisation
+                          {isSaving ? "Sauvegarde..." : "Sauvegarder la synchronisation"}
                         </Button>
-                        <Button variant="outline" onClick={handleReset} className="w-full">
+                        <Button variant="outline" onClick={handleReset} disabled={isSaving} className="w-full">
                           <RotateCcw className="h-4 w-4 mr-2" />
                           Recommencer
                         </Button>
