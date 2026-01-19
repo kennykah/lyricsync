@@ -411,79 +411,146 @@ export default function SyncEditorPage() {
           </div>
         )}
 
-        {/* Sync Controls */}
-        <Card className="mb-6">
-          <CardContent className="py-6">
-            {!isSyncing ? (
-              <div className="text-center">
-                <p className="text-gray-600 mb-4">
-                  Prêt à synchroniser {lines.length} lignes de paroles
-                </p>
-                <Button onClick={handleStartSync} size="lg">
-                  Commencer la synchronisation
-                </Button>
+        {/* Main Sync Area - Two columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Left: All lyrics */}
+          <Card>
+            <CardContent className="py-4">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center justify-between">
+                <span>Paroles ({lines.length} lignes)</span>
+                {isSyncing && (
+                  <span className="text-sm font-normal text-purple-600">
+                    {formatTime(audioTime)}
+                  </span>
+                )}
+              </h3>
+              <div className="max-h-[400px] overflow-y-auto space-y-1 pr-2" id="lyrics-container">
+                {lines.map((line, idx) => (
+                  <div
+                    key={idx}
+                    id={`line-${idx}`}
+                    className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                      idx < currentLine
+                        ? "bg-green-50 text-green-700 border-l-4 border-green-500"
+                        : idx === currentLine
+                        ? "bg-purple-100 text-purple-900 font-semibold border-l-4 border-purple-600 scale-[1.02]"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 min-w-[24px]">{idx + 1}</span>
+                      {idx < currentLine && syncedLyrics[idx] && (
+                        <span className="text-xs text-green-600 font-mono">
+                          [{formatTime(syncedLyrics[idx].time)}]
+                        </span>
+                      )}
+                      <span className="flex-1">{line}</span>
+                      {idx === currentLine && isSyncing && (
+                        <span className="text-purple-600 animate-pulse">◀</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <div>
-                {/* Current line indicator */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500">
-                      Ligne {currentLine + 1} / {lines.length}
-                    </span>
-                    <span className="text-sm text-purple-600 font-medium">
-                      {formatTime(audioTime)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all"
-                      style={{ width: `${(currentLine / lines.length) * 100}%` }}
-                    />
-                  </div>
-                </div>
+            </CardContent>
+          </Card>
 
-                {/* Current line to sync */}
-                <div className="bg-purple-50 rounded-lg p-6 mb-6 text-center">
-                  <p className="text-sm text-purple-600 font-medium mb-2">Ligne actuelle</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {currentLine < lines.length ? lines[currentLine] : "✅ Terminé !"}
-                  </p>
+          {/* Right: Sync controls */}
+          <Card>
+            <CardContent className="py-6">
+              {!isSyncing ? (
+                <div className="text-center">
+                  <h3 className="font-semibold text-gray-900 mb-2">Comment synchroniser ?</h3>
+                  <ol className="text-left text-sm text-gray-600 mb-6 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                      <span>Cliquez sur &quot;Commencer&quot; pour lancer la musique</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                      <span>Appuyez sur <kbd className="px-1 bg-gray-100 rounded">Espace</kbd> ou le bouton &quot;Tap&quot; quand la ligne est chantée</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                      <span>Continuez jusqu&apos;à la fin de la chanson</span>
+                    </li>
+                  </ol>
+                  <Button onClick={handleStartSync} size="lg" className="w-full">
+                    Commencer la synchronisation
+                  </Button>
                 </div>
+              ) : (
+                <div>
+                  {/* Progress indicator */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">
+                        Ligne {currentLine + 1} / {lines.length}
+                      </span>
+                      <span className="text-sm text-purple-600 font-medium">
+                        {Math.round((currentLine / lines.length) * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 h-3 rounded-full transition-all"
+                        style={{ width: `${(currentLine / lines.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center justify-center gap-4">
-                  {currentLine < lines.length ? (
-                    <>
-                      <Button variant="outline" onClick={handleUndo} disabled={syncedLyrics.length === 0}>
-                        <Undo2 className="h-4 w-4 mr-2" />
-                        Annuler
-                      </Button>
-                      <Button onClick={handleTap} size="lg" className="px-12">
-                        Tap (Espace)
-                      </Button>
-                      <Button variant="outline" onClick={handleReset}>
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Réinitialiser
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="outline" onClick={handleReset}>
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Recommencer
-                      </Button>
-                      <Button onClick={handleSave} size="lg" isLoading={isLoading}>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Sauvegarder
-                      </Button>
-                    </>
+                  {/* Current line highlight */}
+                  <div className="bg-purple-50 rounded-lg p-4 mb-6 text-center border-2 border-purple-200">
+                    <p className="text-xs text-purple-600 font-medium mb-1">LIGNE ACTUELLE</p>
+                    <p className="text-xl font-bold text-gray-900">
+                      {currentLine < lines.length ? lines[currentLine] : "✅ Terminé !"}
+                    </p>
+                  </div>
+
+                  {/* Next line preview */}
+                  {currentLine < lines.length - 1 && (
+                    <div className="bg-gray-50 rounded-lg p-3 mb-6 text-center">
+                      <p className="text-xs text-gray-500 mb-1">PROCHAINE LIGNE</p>
+                      <p className="text-sm text-gray-600">{lines[currentLine + 1]}</p>
+                    </div>
                   )}
+
+                  {/* Action buttons */}
+                  <div className="space-y-3">
+                    {currentLine < lines.length ? (
+                      <>
+                        <Button onClick={handleTap} size="lg" className="w-full text-lg py-6">
+                          🎵 Tap (Espace)
+                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={handleUndo} disabled={syncedLyrics.length === 0} className="flex-1">
+                            <Undo2 className="h-4 w-4 mr-2" />
+                            Annuler
+                          </Button>
+                          <Button variant="outline" onClick={handleReset} className="flex-1">
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reset
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Button onClick={handleSave} size="lg" isLoading={isLoading} className="w-full">
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Sauvegarder la synchronisation
+                        </Button>
+                        <Button variant="outline" onClick={handleReset} className="w-full">
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          Recommencer
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Synced lyrics preview */}
         {syncedLyrics.length > 0 && (
