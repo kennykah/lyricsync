@@ -6,14 +6,12 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Upload, Music, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function UploadPage() {
   const router = useRouter();
-  const supabase = createClient();
   const { user, isLoading: authLoading } = useAuth();
   
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -72,84 +70,37 @@ export default function UploadPage() {
     try {
       setUploadProgress(10);
 
-      // Generate unique filename
-      const fileExt = audioFile.name.split(".").pop()?.toLowerCase() || "mp3";
-      const sanitizedTitle = title.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-      const fileName = `${user?.id || 'anonymous'}/${Date.now()}-${sanitizedTitle}.${fileExt}`;
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', audioFile);
+      formData.append('title', title);
+      formData.append('artist', artist);
+      formData.append('album', album || '');
+      formData.append('lyrics', lyrics);
 
       setUploadProgress(20);
 
-      console.log("Starting upload...", { fileName, fileSize: audioFile.size });
+      console.log("Starting upload via API...", { 
+        fileName: audioFile.name, 
+        fileSize: audioFile.size,
+        title,
+        artist 
+      });
 
-      // Upload audio to Supabase Storage
-      // No timeout - let Supabase handle it
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("audio")
-        .upload(fileName, audioFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      // Upload via API route
+      const response = await fetch('/api/v1/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-      console.log("Upload result:", { uploadData, uploadError });
+      setUploadProgress(80);
 
-      if (uploadError) {
-        // Handle specific errors
-        if (uploadError.message.includes("Bucket not found")) {
-          setError(
-            "Le bucket de stockage 'audio' n'existe pas. Veuillez contacter l'administrateur pour créer le bucket dans Supabase Storage."
-          );
-        } else if (uploadError.message.includes("duplicate")) {
-          setError("Un fichier avec ce nom existe déjà. Veuillez réessayer.");
-        } else if (uploadError.message.includes("Payload too large")) {
-          setError("Le fichier est trop volumineux. Maximum 50 Mo.");
-        } else {
-          setError("Erreur lors de l'upload audio : " + uploadError.message);
-        }
-        setIsLoading(false);
-        return;
-      }
+      const result = await response.json();
 
-      setUploadProgress(60);
+      console.log("Upload result:", result);
 
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from("audio")
-        .getPublicUrl(fileName);
-      
-      const audioUrl = publicUrlData.publicUrl;
-
-      setUploadProgress(70);
-
-      // Generate slug
-      const slug = `${sanitizedTitle}-${Date.now()}`;
-
-      // Insert song metadata and lyrics in Supabase DB
-      const { data: songData, error: dbError } = await supabase
-        .from("songs")
-        .insert([
-          {
-            title,
-            slug,
-            artist_name: artist,
-            album: album || null,
-            audio_url: audioUrl,
-            lyrics_text: lyrics,
-            status: "draft",
-            submitted_by: user?.id || null,
-          },
-        ])
-        .select()
-        .single();
-
-      if (dbError) {
-        // Try to delete the uploaded file if DB insert fails
-        await supabase.storage.from("audio").remove([fileName]);
-        
-        if (dbError.message.includes("duplicate")) {
-          setError("Une chanson avec ce titre existe déjà.");
-        } else {
-          setError("Erreur lors de l'enregistrement : " + dbError.message);
-        }
+      if (!response.ok) {
+        setError(result.error || "Erreur lors de l'upload");
         setIsLoading(false);
         return;
       }
@@ -166,8 +117,8 @@ export default function UploadPage() {
       
       // Redirect to sync page
       setTimeout(() => {
-        if (songData?.id) {
-          router.push(`/sync/${songData.id}`);
+        if (result.song?.id) {
+          router.push(`/sync/${result.song.id}`);
         } else {
           router.push("/dashboard");
         }
@@ -240,7 +191,9 @@ export default function UploadPage() {
               {isLoading && uploadProgress > 0 && (
                 <div className="bg-purple-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-purple-600 font-medium">Upload en cours...</span>
+                    <span className="text-sm text-purple-600 font-medium">
+                      {uploadProgress < 80 ? "Envoi du fichier..." : "Traitement en cours..."}
+                    </span>
                     <span className="text-sm text-purple-600">{uploadProgress}%</span>
                   </div>
                   <div className="w-full bg-purple-200 rounded-full h-2">
