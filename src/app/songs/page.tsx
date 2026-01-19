@@ -15,11 +15,14 @@ import {
   Filter,
   ChevronDown,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  CheckCircle,
+  Download,
+  Eye
 } from "lucide-react";
 import type { Song } from "@/types";
 
-type SongStatus = 'all' | 'pending_sync' | 'syncing' | 'published';
+type SongStatus = 'all' | 'draft' | 'pending_sync' | 'syncing' | 'synced' | 'published';
 
 export default function SongsPage() {
   const supabase = createClient();
@@ -83,20 +86,44 @@ export default function SongsPage() {
   }, [searchQuery, statusFilter, songs]);
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { text: string; className: string }> = {
+    const badges: Record<string, { text: string; className: string; icon?: React.ReactNode }> = {
       draft: { text: "Brouillon", className: "bg-gray-100 text-gray-700" },
       pending_sync: { text: "À synchroniser", className: "bg-yellow-100 text-yellow-700" },
       syncing: { text: "En cours", className: "bg-blue-100 text-blue-700" },
+      synced: { text: "Synchronisé", className: "bg-green-100 text-green-700", icon: <CheckCircle className="h-3 w-3 mr-1" /> },
       pending_validation: { text: "En validation", className: "bg-orange-100 text-orange-700" },
-      published: { text: "Publié", className: "bg-green-100 text-green-700" },
+      published: { text: "Publié", className: "bg-green-100 text-green-700", icon: <CheckCircle className="h-3 w-3 mr-1" /> },
       rejected: { text: "Rejeté", className: "bg-red-100 text-red-700" },
     };
     const badge = badges[status] || badges.draft;
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${badge.className}`}>
+        {badge.icon}
         {badge.text}
       </span>
     );
+  };
+
+  const handleDownloadLRC = async (songId: string, songTitle: string) => {
+    try {
+      const response = await fetch(`/api/v1/lrc/${songId}?format=lrc`);
+      if (!response.ok) {
+        console.error("Error downloading LRC");
+        return;
+      }
+      const lrcContent = await response.text();
+      const blob = new Blob([lrcContent], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${songTitle}.lrc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading LRC:", err);
+    }
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -150,8 +177,8 @@ export default function SongsPage() {
                   <span className="text-sm font-medium text-gray-700 mr-2">Statut:</span>
                   {[
                     { value: 'all', label: 'Tous' },
-                    { value: 'pending_sync', label: 'À synchroniser' },
-                    { value: 'syncing', label: 'En cours' },
+                    { value: 'draft', label: 'Brouillons' },
+                    { value: 'synced', label: '✅ Synchronisés' },
                     { value: 'published', label: 'Publiés' },
                   ].map((option) => (
                     <button
@@ -254,12 +281,30 @@ export default function SongsPage() {
 
                     {/* Actions */}
                     <div className="flex gap-2">
-                      <Link href={`/sync/${song.id}`} className="flex-1">
-                        <Button size="sm" className="w-full">
-                          <Play className="h-4 w-4 mr-1" />
-                          Synchroniser
-                        </Button>
-                      </Link>
+                      {['synced', 'published'].includes(song.status) ? (
+                        <>
+                          <Link href={`/sync/${song.id}`} className="flex-1">
+                            <Button size="sm" variant="outline" className="w-full">
+                              <Eye className="h-4 w-4 mr-1" />
+                              Voir
+                            </Button>
+                          </Link>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleDownloadLRC(song.id, song.title)}
+                            title="Télécharger le fichier LRC"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Link href={`/sync/${song.id}`} className="flex-1">
+                          <Button size="sm" className="w-full">
+                            <Play className="h-4 w-4 mr-1" />
+                            Synchroniser
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </CardContent>
