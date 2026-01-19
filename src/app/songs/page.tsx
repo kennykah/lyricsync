@@ -281,16 +281,32 @@ export default function SongsPage() {
 
                     {/* Actions */}
                     <div className="flex gap-2">
-                      {['synced', 'published'].includes(song.status) ? (
+                      {song.status === 'published' ? (
+                        <>
+                          <Link href={`/song/${song.id}`} className="flex-1">
+                            <Button size="sm" className="w-full">
+                              <Play className="h-4 w-4 mr-1" />
+                              Écouter
+                            </Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            onClick={() => handleDownloadLRC(song.id, song.title)}
+                            title="Télécharger le fichier LRC"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : ['synced', 'approved'].includes(song.status) ? (
                         <>
                           <Link href={`/sync/${song.id}`} className="flex-1">
                             <Button size="sm" variant="outline" className="w-full">
                               <Eye className="h-4 w-4 mr-1" />
-                              Voir
+                              Modifier
                             </Button>
                           </Link>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             onClick={() => handleDownloadLRC(song.id, song.title)}
                             title="Télécharger le fichier LRC"
                           >

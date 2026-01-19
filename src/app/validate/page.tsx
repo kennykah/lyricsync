@@ -122,7 +122,7 @@ export default function ValidatePage() {
     if (!user) return;
 
     try {
-      const newStatus = action === "approve" ? "approved" : "rejected";
+      const newStatus = action === "approve" ? "published" : "rejected";
 
       // Update song status
       const { error: songError } = await supabase
