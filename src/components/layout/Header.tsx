@@ -80,6 +80,14 @@ export default function Header() {
                     ✅ Valider
                   </Link>
                 )}
+                {profile?.role === "admin" && (
+                  <Link
+                    href="/admin/users"
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-purple-600"
+                  >
+                    👑 Admin
+                  </Link>
+                )}
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center text-white text-sm font-medium">
                     {profile?.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
@@ -150,6 +158,15 @@ export default function Header() {
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       ✅ Valider
+                    </Link>
+                  )}
+                  {profile?.role === "admin" && (
+                    <Link
+                      href="/admin/users"
+                      className="text-base font-medium text-gray-700"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      👑 Administration
                     </Link>
                   )}
                   <button
