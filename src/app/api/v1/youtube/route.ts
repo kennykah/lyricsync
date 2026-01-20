@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { spawn } from 'child_process';
-import { writeFile, unlink } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,23 +27,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('Starting YouTube import for:', youtubeUrl);
+
     const supabase = await createClient();
 
-    // Extract video info first
-    console.log('Extracting YouTube video info...');
-    const videoInfo = await getYouTubeVideoInfo(youtubeUrl);
+    // Use ytmp3.cc API to get download link
+    console.log('Getting download info from ytmp3.cc...');
+    const downloadInfo = await getYtmp3DownloadInfo(youtubeUrl);
 
-    console.log('Video info:', videoInfo);
+    console.log('Download info received:', {
+      title: downloadInfo.title,
+      duration: downloadInfo.duration,
+      hasAudio: !!downloadInfo.audioUrl
+    });
 
-    // Download and convert audio
-    console.log('Downloading and converting audio...');
-    const audioBuffer = await downloadYouTubeAudio(youtubeUrl);
+    // Download audio from ytmp3.cc
+    console.log('Downloading audio from ytmp3.cc...');
+    const audioResponse = await fetch(downloadInfo.audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error('Impossible de télécharger l\'audio depuis ytmp3.cc');
+    }
 
-    console.log('Audio downloaded, size:', audioBuffer.length);
+    const audioBuffer = await audioResponse.arrayBuffer();
+    console.log('Audio downloaded, size:', audioBuffer.byteLength, 'bytes');
 
     // Upload to Supabase Storage
     console.log('Uploading to Supabase Storage...');
-    const fileName = `youtube_${Date.now()}_${videoInfo.id}.mp3`;
+    const fileName = `youtube_${Date.now()}_${downloadInfo.id}.mp3`;
     const filePath = `audio/${fileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -81,7 +87,7 @@ export async function POST(request: NextRequest) {
         lyrics_text: lyrics,
         status: 'draft',
         submitted_by: null, // Will be set by auth middleware if implemented
-        duration_seconds: videoInfo.duration || null
+        duration_seconds: downloadInfo.duration || null
       })
       .select()
       .single();
@@ -97,9 +103,10 @@ export async function POST(request: NextRequest) {
       success: true,
       song: songData,
       videoInfo: {
-        title: videoInfo.title,
-        duration: videoInfo.duration,
-        thumbnail: videoInfo.thumbnail
+        title: downloadInfo.title,
+        duration: downloadInfo.duration,
+        thumbnail: downloadInfo.thumbnail,
+        originalTitle: downloadInfo.title
       }
     });
 
@@ -112,101 +119,55 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function getYouTubeVideoInfo(url: string): Promise<{
+async function getYtmp3DownloadInfo(youtubeUrl: string): Promise<{
   id: string;
   title: string;
   duration: number;
   thumbnail: string;
+  audioUrl: string;
 }> {
-  return new Promise((resolve, reject) => {
-    // Use yt-dlp to get video info as JSON
-    const ytDlp = spawn('yt-dlp', [
-      '--no-download',
-      '--print-json',
-      '--no-warnings',
-      url
-    ]);
+  try {
+    // Extract video ID from YouTube URL
+    const videoIdMatch = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (!videoIdMatch) {
+      throw new Error('Invalid YouTube URL');
+    }
+    const videoId = videoIdMatch[1];
 
-    let stdout = '';
-    let stderr = '';
+    console.log('Extracted video ID:', videoId);
 
-    ytDlp.stdout.on('data', (data) => {
-      stdout += data.toString();
+    // Call ytmp3.cc API to get download info
+    const response = await fetch('https://api.ytmp3.cc/v2/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: youtubeUrl,
+        format: 'mp3'
+      })
     });
 
-    ytDlp.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    if (!response.ok) {
+      throw new Error(`ytmp3.cc API error: ${response.status}`);
+    }
 
-    ytDlp.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`yt-dlp info failed: ${stderr}`));
-        return;
-      }
+    const data = await response.json();
 
-      try {
-        const info = JSON.parse(stdout.trim());
-        resolve({
-          id: info.id,
-          title: info.title,
-          duration: Math.floor(info.duration),
-          thumbnail: info.thumbnail
-        });
-      } catch (err) {
-        reject(new Error('Failed to parse video info'));
-      }
-    });
+    if (!data || !data.audioUrl) {
+      throw new Error('Failed to get download URL from ytmp3.cc');
+    }
 
-    ytDlp.on('error', (err) => {
-      reject(new Error(`yt-dlp not found. Please install yt-dlp: ${err.message}`));
-    });
-  });
-}
+    return {
+      id: videoId,
+      title: data.title || `YouTube Video ${videoId}`,
+      duration: data.duration || 0,
+      thumbnail: data.thumbnail || '',
+      audioUrl: data.audioUrl
+    };
 
-async function downloadYouTubeAudio(url: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const tempDir = tmpdir();
-    const outputPath = join(tempDir, `youtube_audio_${Date.now()}.mp3`);
-
-    // Use yt-dlp to download and convert to MP3
-    const ytDlp = spawn('yt-dlp', [
-      '--extract-audio',
-      '--audio-format', 'mp3',
-      '--audio-quality', '128K',
-      '--output', outputPath,
-      '--no-warnings',
-      '--quiet',
-      url
-    ]);
-
-    let stderr = '';
-
-    ytDlp.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    ytDlp.on('close', async (code) => {
-      if (code !== 0) {
-        reject(new Error(`yt-dlp download failed: ${stderr}`));
-        return;
-      }
-
-      try {
-        // Read the downloaded file
-        const fs = await import('fs');
-        const buffer = fs.readFileSync(outputPath);
-
-        // Clean up temp file
-        await unlink(outputPath);
-
-        resolve(buffer);
-      } catch (err) {
-        reject(new Error('Failed to read downloaded audio file'));
-      }
-    });
-
-    ytDlp.on('error', (err) => {
-      reject(new Error(`yt-dlp not found. Please install yt-dlp: ${err.message}`));
-    });
-  });
+  } catch (error: any) {
+    console.error('ytmp3.cc API error:', error);
+    throw new Error(`Impossible d'obtenir les informations de téléchargement: ${error.message}`);
+  }
 }
