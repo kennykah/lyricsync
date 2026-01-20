@@ -9,6 +9,7 @@ import AudioPlayer, { AudioPlayerRef } from "@/components/ui/AudioPlayer";
 import Waveform, { WaveformRef } from "@/components/ui/Waveform";
 import { Card, CardContent } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   ArrowLeft,
   Music,
@@ -19,7 +20,8 @@ import {
   Heart,
   AlertCircle,
   Play,
-  Pause
+  Pause,
+  Edit
 } from "lucide-react";
 
 interface Song {
@@ -46,6 +48,7 @@ export default function SongPlayerPage() {
   const params = useParams();
   const songId = params.id as string;
   const supabase = createClient();
+  const { user, profile } = useAuth();
 
   const audioPlayerRef = useRef<AudioPlayerRef>(null);
   const waveformRef = useRef<WaveformRef>(null);
@@ -226,6 +229,14 @@ export default function SongPlayerPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {profile?.role === "admin" && (
+              <Link href={`/sync/${songId}`}>
+                <Button variant="outline" className="border-orange-200 text-orange-600 hover:bg-orange-50">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Modifier
+                </Button>
+              </Link>
+            )}
             <Button variant="outline" onClick={handleDownloadLRC}>
               <Download className="h-4 w-4 mr-2" />
               LRC

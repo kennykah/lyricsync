@@ -35,8 +35,9 @@ const Waveform = forwardRef<WaveformRef, WaveformProps>(
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const waveSurferRef = useRef<WaveSurfer | null>(null);
-    const [isReady, setIsReady] = useState(false);
-    const [duration, setDuration] = useState(0);
+  const [isReady, setIsReady] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
@@ -96,10 +97,22 @@ const Waveform = forwardRef<WaveformRef, WaveformProps>(
 
       // Event handlers
       wavesurfer.on("ready", () => {
+        console.log("Waveform ready for:", src);
         const dur = wavesurfer.getDuration();
         setDuration(dur);
         setIsReady(true);
+        setError(null);
         onReady?.(dur);
+      });
+
+      wavesurfer.on("error", (err) => {
+        console.error("Waveform error:", err, "for URL:", src);
+        setError("Erreur de chargement du waveform");
+        setIsReady(false);
+      });
+
+      wavesurfer.on("loading", (percent) => {
+        console.log("Waveform loading:", percent, "% for:", src);
       });
 
       wavesurfer.on("interaction", () => {
@@ -140,10 +153,18 @@ const Waveform = forwardRef<WaveformRef, WaveformProps>(
           className="waveform-container cursor-pointer"
           style={{ minHeight: height }}
         />
-        {!isReady && src && (
+        {!isReady && src && !error && (
           <div className="flex items-center justify-center py-4">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
             <span className="ml-2 text-sm text-gray-500">Chargement du waveform...</span>
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center justify-center py-4">
+            <div className="text-red-500 text-sm text-center">
+              <p>❌ Erreur de chargement du waveform</p>
+              <p className="text-xs mt-1 opacity-75">Vérifiez la console pour plus de détails</p>
+            </div>
           </div>
         )}
       </div>
