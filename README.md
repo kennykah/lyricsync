@@ -6,7 +6,7 @@ Synchronisation intelligente de paroles musicales avec interface moderne et fonc
 
 - 🎵 **Synchronisation manuelle** : Interface tap-to-sync précise avec contrôles avancés
 - 🎨 **Interface Apple Music** : Affichage élégant des paroles avec transitions fluides
-- 📺 **Import YouTube** : Extraction automatique d'audio depuis vidéos YouTube
+- 🎼 **Upload audio** : Téléchargement de fichiers audio (MP3, WAV) avec paroles
 - 👑 **Gestion utilisateurs** : Système de rôles (contributeur, validateur, admin)
 - ✅ **Validation communautaire** : Système de validation des synchronisations
 - 🎯 **Points & Badges** : Système de gamification
@@ -18,29 +18,6 @@ Synchronisation intelligente de paroles musicales avec interface moderne et fonc
 
 - Node.js 18+
 - PostgreSQL (via Supabase)
-- yt-dlp (pour l'import YouTube)
-
-### Installation de yt-dlp
-
-**Sur Ubuntu/Debian :**
-```bash
-sudo apt update && sudo apt install python3 python3-pip
-pip3 install yt-dlp
-```
-
-**Sur macOS :**
-```bash
-brew install yt-dlp
-```
-
-**Sur Windows :**
-```bash
-# Via Chocolatey
-choco install yt-dlp
-
-# Ou via pip
-pip install yt-dlp
-```
 
 ### Configuration
 
@@ -80,14 +57,7 @@ pip install yt-dlp
 4. Ajouter les métadonnées et paroles
 5. Cliquer "Uploader et synchroniser"
 
-### Import YouTube
-1. Aller sur `/upload`
-2. Sélectionner "YouTube"
-3. Coller l'URL YouTube
-4. Ajouter les métadonnées et paroles
-5. Cliquer "Importer et synchroniser"
 
-**Note :** L'import YouTube utilise l'API ytmp3.cc et fonctionne automatiquement sans installation supplémentaire.
 
 ### Synchronisation des paroles
 1. Après upload, accéder à `/sync/[id]`
@@ -109,7 +79,6 @@ pip install yt-dlp
 | Endpoint | Méthode | Description |
 |----------|---------|-------------|
 | `/api/v1/upload` | POST | Upload fichier audio |
-| `/api/v1/youtube` | POST | Import depuis YouTube |
 | `/api/v1/songs` | GET/POST | Gestion des chansons |
 | `/api/v1/lrc/[id]` | GET/POST | Gestion des paroles |
 
@@ -141,10 +110,10 @@ pip install yt-dlp
 
 ## 🐛 Dépannage
 
-### Import YouTube ne fonctionne pas
-- Vérifier que `yt-dlp` est installé : `yt-dlp --version`
-- Vérifier les permissions d'écriture dans `/tmp`
-- Consulter les logs du serveur pour les erreurs yt-dlp
+### Upload de fichier échoue
+- Vérifier que le fichier fait moins de 10 Mo
+- Vérifier que c'est un fichier audio (MP3, WAV, etc.)
+- Ouvrir la console pour voir les erreurs détaillées
 
 ### Waveform ne s'affiche pas
 - Ouvrir la console du navigateur (F12)
@@ -173,4 +142,3 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 - [WaveSurfer.js](https://wavesurfer-js.org/) pour la visualisation audio
 - [Howler.js](https://howlerjs.com/) pour la lecture audio
 - [Supabase](https://supabase.com/) pour le backend
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) pour l'extraction YouTube
