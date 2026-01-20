@@ -9,14 +9,21 @@ import Waveform, { WaveformRef } from "@/components/ui/Waveform";
 import { Card, CardContent } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { 
-  ArrowLeft, 
-  Download, 
-  Undo2, 
-  RotateCcw, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  Download,
+  Undo2,
+  RotateCcw,
+  CheckCircle,
   AlertCircle,
-  Keyboard
+  Keyboard,
+  Settings,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  Edit3
 } from "lucide-react";
 import Link from "next/link";
 
@@ -55,6 +62,9 @@ export default function SyncEditorPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [syncDelay, setSyncDelay] = useState(0); // Délai en ms avant enregistrement
+  const [lastTapTime, setLastTapTime] = useState<number | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Fetch song data
   useEffect(() => {
@@ -153,6 +163,25 @@ export default function SyncEditorPage() {
       }
     }
   }, [currentLine, isSyncing]);
+
+  // Adjust last timestamp
+  const adjustLastTimestamp = useCallback((adjustment: number) => {
+    if (syncedLyrics.length === 0) return;
+
+    setSyncedLyrics(prev => {
+      const newLyrics = [...prev];
+      const lastIndex = newLyrics.length - 1;
+      const currentTime = newLyrics[lastIndex].time;
+      const newTime = Math.max(0, currentTime + adjustment);
+
+      newLyrics[lastIndex] = {
+        ...newLyrics[lastIndex],
+        time: newTime
+      };
+
+      return newLyrics;
+    });
+  }, [syncedLyrics]);
 
   // Tap to sync current line
   const handleTap = useCallback(() => {
@@ -509,25 +538,70 @@ export default function SyncEditorPage() {
           <Card>
             <CardContent className="py-6">
               {!isSyncing ? (
-                <div className="text-center">
-                  <h3 className="font-semibold text-gray-900 mb-2">Comment synchroniser ?</h3>
-                  <ol className="text-left text-sm text-gray-600 mb-6 space-y-2">
-                    <li className="flex items-start gap-2">
-                      <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                      <span>Cliquez sur &quot;Commencer&quot; pour lancer la musique</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                      <span>Appuyez sur <kbd className="px-1 bg-gray-100 rounded">Espace</kbd> ou le bouton &quot;Tap&quot; quand la ligne est chantée</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                      <span>Continuez jusqu&apos;à la fin de la chanson</span>
-                    </li>
-                  </ol>
-                  <Button onClick={handleStartSync} size="lg" className="w-full">
-                    Commencer la synchronisation
-                  </Button>
+                <div className="space-y-6">
+                  {/* Advanced Settings */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Paramètres avancés
+                    </h3>
+
+                    {/* Sync Delay */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Délai de synchronisation: {syncDelay}ms
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="500"
+                        step="50"
+                        value={syncDelay}
+                        onChange={(e) => setSyncDelay(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Instantané</span>
+                        <span>500ms</span>
+                      </div>
+                    </div>
+
+                    {/* Preview Mode */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="previewMode"
+                        checked={previewMode}
+                        onChange={(e) => setPreviewMode(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor="previewMode" className="text-sm text-gray-700">
+                        Mode prévisualisation (pas de sauvegarde)
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Instructions */}
+                  <div className="text-center">
+                    <h3 className="font-semibold text-gray-900 mb-2">Comment synchroniser ?</h3>
+                    <ol className="text-left text-sm text-gray-600 mb-6 space-y-2">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                        <span>Cliquez sur "Commencer" pour lancer la musique</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                        <span>Appuyez sur <kbd className="px-1 bg-gray-100 rounded">Espace</kbd> ou le bouton "Tap" quand la ligne est chantée</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-purple-100 text-purple-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                        <span>Continuez jusqu'à la fin de la chanson</span>
+                      </li>
+                    </ol>
+                    <Button onClick={handleStartSync} size="lg" className="w-full">
+                      Commencer la synchronisation
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -565,36 +639,119 @@ export default function SyncEditorPage() {
                     </div>
                   )}
 
-                  {/* Action buttons */}
-                  <div className="space-y-3">
-                    {currentLine < lines.length ? (
-                      <>
-                        <Button onClick={handleTap} size="lg" className="w-full text-lg py-6">
-                          🎵 Tap (Espace)
-                        </Button>
+                  {/* Advanced Controls */}
+                  <div className="space-y-4">
+                    {/* Playback Controls */}
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => audioPlayerRef.current?.seek(Math.max(0, audioTime - 5))}
+                        title="Reculer de 5 secondes"
+                      >
+                        <SkipBack className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (audioPlayerRef.current?.isPlaying()) {
+                            audioPlayerRef.current.pause();
+                          } else {
+                            audioPlayerRef.current?.play();
+                          }
+                        }}
+                        title="Play/Pause"
+                      >
+                        <Play className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => audioPlayerRef.current?.seek(audioTime + 5)}
+                        title="Avancer de 5 secondes"
+                      >
+                        <SkipForward className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Last timestamp adjustment */}
+                    {syncedLyrics.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">Dernière synchronisation:</span>
+                          <span className="text-sm text-purple-600 font-mono">
+                            {formatTime(syncedLyrics[syncedLyrics.length - 1].time)}
+                          </span>
+                        </div>
                         <div className="flex gap-2">
-                          <Button variant="outline" onClick={handleUndo} disabled={syncedLyrics.length === 0} className="flex-1">
-                            <Undo2 className="h-4 w-4 mr-2" />
-                            Annuler
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => adjustLastTimestamp(-0.1)}
+                            title="Ajuster -100ms"
+                          >
+                            -0.1s
                           </Button>
-                          <Button variant="outline" onClick={handleReset} className="flex-1">
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Reset
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => adjustLastTimestamp(-0.05)}
+                            title="Ajuster -50ms"
+                          >
+                            -0.05s
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => adjustLastTimestamp(0.05)}
+                            title="Ajuster +50ms"
+                          >
+                            +0.05s
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => adjustLastTimestamp(0.1)}
+                            title="Ajuster +100ms"
+                          >
+                            +0.1s
                           </Button>
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <Button onClick={handleSave} size="lg" isLoading={isSaving} disabled={isSaving} className="w-full">
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          {isSaving ? "Sauvegarde..." : "Sauvegarder la synchronisation"}
-                        </Button>
-                        <Button variant="outline" onClick={handleReset} disabled={isSaving} className="w-full">
-                          <RotateCcw className="h-4 w-4 mr-2" />
-                          Recommencer
-                        </Button>
-                      </>
+                      </div>
                     )}
+
+                    {/* Action buttons */}
+                    <div className="space-y-3">
+                      {currentLine < lines.length ? (
+                        <>
+                          <Button onClick={handleTap} size="lg" className="w-full text-lg py-6">
+                            🎵 Tap (Espace) {syncDelay > 0 && `+${syncDelay}ms`}
+                          </Button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button variant="outline" onClick={handleUndo} disabled={syncedLyrics.length === 0}>
+                              <Undo2 className="h-4 w-4 mr-2" />
+                              Annuler
+                            </Button>
+                            <Button variant="outline" onClick={handleReset}>
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Reset
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Button onClick={handleSave} size="lg" isLoading={isSaving} disabled={isSaving} className="w-full">
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            {isSaving ? "Sauvegarde..." : "Sauvegarder la synchronisation"}
+                          </Button>
+                          <Button variant="outline" onClick={handleReset} disabled={isSaving}>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Recommencer
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
