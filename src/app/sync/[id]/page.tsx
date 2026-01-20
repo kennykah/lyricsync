@@ -233,22 +233,48 @@ export default function SyncEditorPage() {
       console.log("LRC generated, length:", lrcRaw.length);
       console.log("Saving LRC to database...", { songId, linesCount: syncedLyrics.length, userId: user?.id });
 
-      // Save LRC file with timeout
-      const lrcPromise = supabase.from("lrc_files").upsert(
-        {
-          song_id: songId,
-          synced_lyrics: syncedLyrics,
-          lrc_raw: lrcRaw,
-          source: "manual",
-          created_by: user?.id,
-        },
-        { onConflict: "song_id" }
-      );
+      // Save LRC file with timeout - try insert first, then update if exists
+      console.log("Checking if LRC file already exists...");
+
+      const { data: existingLrc, error: checkError } = await supabase
+        .from("lrc_files")
+        .select("id")
+        .eq("song_id", songId)
+        .single();
+
+      console.log("Existing LRC check result:", { data: existingLrc, error: checkError });
+
+      let lrcPromise;
+      if (existingLrc) {
+        console.log("Updating existing LRC file...");
+        lrcPromise = supabase
+          .from("lrc_files")
+          .update({
+            synced_lyrics: syncedLyrics,
+            lrc_raw: lrcRaw,
+            source: "manual",
+            created_by: user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq("song_id", songId);
+      } else {
+        console.log("Creating new LRC file...");
+        lrcPromise = supabase
+          .from("lrc_files")
+          .insert({
+            song_id: songId,
+            synced_lyrics: syncedLyrics,
+            lrc_raw: lrcRaw,
+            source: "manual",
+            created_by: user?.id,
+          });
+      }
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Database timeout")), 10000)
+        setTimeout(() => reject(new Error("Database timeout after 30 seconds")), 30000)
       );
 
+      console.log("Executing LRC save with timeout...");
       const { data: lrcData, error: lrcError } = await Promise.race([lrcPromise, timeoutPromise]) as any;
 
       console.log("LRC save result:", { data: lrcData, error: lrcError });
