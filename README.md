@@ -83,11 +83,11 @@ pip install yt-dlp
 ### Import YouTube
 1. Aller sur `/upload`
 2. Sélectionner "YouTube"
-3. Coller l'URL d'une vidéo YouTube
+3. Coller l'URL YouTube
 4. Ajouter les métadonnées et paroles
 5. Cliquer "Importer et synchroniser"
 
-**Note :** yt-dlp doit être installé sur le serveur pour que l'import YouTube fonctionne.
+**Note :** L'import YouTube utilise l'API ytmp3.cc et fonctionne automatiquement sans installation supplémentaire.
 
 ### Synchronisation des paroles
 1. Après upload, accéder à `/sync/[id]`
