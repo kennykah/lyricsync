@@ -136,38 +136,102 @@ async function getYtmp3DownloadInfo(youtubeUrl: string): Promise<{
 
     console.log('Extracted video ID:', videoId);
 
-    // Call ytmp3.cc API to get download info
-    const response = await fetch('https://api.ytmp3.cc/v2/download', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    // Try multiple APIs in order of preference
+    const apis = [
+      {
+        name: 'ytmp3.cc',
+        url: 'https://api.ytmp3.cc/v2/download',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: { url: youtubeUrl, format: 'mp3' }
       },
-      body: JSON.stringify({
-        url: youtubeUrl,
-        format: 'mp3'
-      })
-    });
+      {
+        name: 'loader.to',
+        url: `https://loader.to/ajax/download.php?format=mp3&url=${encodeURIComponent(youtubeUrl)}`,
+        method: 'GET'
+      },
+      {
+        name: 'y2mate',
+        url: 'https://api.y2mate.com/v2/analyze',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: { url: youtubeUrl }
+      }
+    ];
 
-    if (!response.ok) {
-      throw new Error(`ytmp3.cc API error: ${response.status}`);
+    for (const api of apis) {
+      try {
+        console.log(`Trying ${api.name} API...`);
+
+        const requestOptions: any = {
+          method: api.method,
+          headers: api.headers || {}
+        };
+
+        if (api.body) {
+          requestOptions.body = JSON.stringify(api.body);
+        }
+
+        const response = await fetch(api.url, requestOptions);
+
+        if (!response.ok) {
+          console.log(`${api.name} returned ${response.status}, trying next...`);
+          continue;
+        }
+
+        const data = await response.json();
+        console.log(`${api.name} response:`, data);
+
+        // Parse response based on API
+        let result;
+        if (api.name === 'ytmp3.cc') {
+          if (data.audioUrl) {
+            result = {
+              id: videoId,
+              title: data.title || `YouTube Video ${videoId}`,
+              duration: data.duration || 0,
+              thumbnail: data.thumbnail || '',
+              audioUrl: data.audioUrl
+            };
+          }
+        } else if (api.name === 'loader.to') {
+          if (data.success && data.download_url) {
+            result = {
+              id: videoId,
+              title: data.title || `YouTube Video ${videoId}`,
+              duration: 0,
+              thumbnail: '',
+              audioUrl: data.download_url
+            };
+          }
+        } else if (api.name === 'y2mate') {
+          if (data.status === 'ok' && data.result) {
+            result = {
+              id: videoId,
+              title: data.result.title || `YouTube Video ${videoId}`,
+              duration: data.result.duration || 0,
+              thumbnail: data.result.thumbnail || '',
+              audioUrl: '' // Would need additional call to get actual download URL
+            };
+          }
+        }
+
+        if (result && result.audioUrl) {
+          console.log(`Successfully got download URL from ${api.name}`);
+          return result;
+        }
+
+      } catch (apiError) {
+        console.log(`${api.name} failed:`, apiError);
+        continue;
+      }
     }
 
-    const data = await response.json();
-
-    if (!data || !data.audioUrl) {
-      throw new Error('Failed to get download URL from ytmp3.cc');
-    }
-
-    return {
-      id: videoId,
-      title: data.title || `YouTube Video ${videoId}`,
-      duration: data.duration || 0,
-      thumbnail: data.thumbnail || '',
-      audioUrl: data.audioUrl
-    };
+    // If all APIs failed, throw error
+    throw new Error('All YouTube APIs are currently unavailable. Please try again later or use file upload instead.');
 
   } catch (error: any) {
-    console.error('ytmp3.cc API error:', error);
+    console.error('YouTube API error:', error);
     throw new Error(`Impossible d'obtenir les informations de téléchargement: ${error.message}`);
   }
 }
