@@ -185,11 +185,14 @@ export default function SyncEditorPage() {
       return;
     }
 
+    console.log("Starting save process...");
     setIsSaving(true);
     setError("");
+    setSuccess("");
 
     try {
       // Generate LRC raw format
+      console.log("Generating LRC content...");
       const lrcRaw = syncedLyrics
         .map((line) => {
           const mins = Math.floor(line.time / 60);
@@ -198,9 +201,11 @@ export default function SyncEditorPage() {
         })
         .join("\n");
 
-      console.log("Saving LRC...", { songId, linesCount: syncedLyrics.length });
+      console.log("LRC generated, length:", lrcRaw.length);
+      console.log("Saving LRC to database...", { songId, linesCount: syncedLyrics.length, userId: user?.id });
 
-      const { error: lrcError } = await supabase.from("lrc_files").upsert(
+      // Save LRC file with timeout
+      const lrcPromise = supabase.from("lrc_files").upsert(
         {
           song_id: songId,
           synced_lyrics: syncedLyrics,
@@ -211,30 +216,44 @@ export default function SyncEditorPage() {
         { onConflict: "song_id" }
       );
 
-      console.log("Save result:", { error: lrcError });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Database timeout")), 10000)
+      );
+
+      const { data: lrcData, error: lrcError } = await Promise.race([lrcPromise, timeoutPromise]) as any;
+
+      console.log("LRC save result:", { data: lrcData, error: lrcError });
 
       if (lrcError) {
-        setError("Erreur lors de la sauvegarde : " + lrcError.message);
+        console.error("LRC save error:", lrcError);
+        setError("Erreur lors de la sauvegarde LRC : " + lrcError.message);
         setIsSaving(false);
         return;
       }
 
-      // Update song status to "pending_validation"
-      const { error: statusError } = await supabase
+      // Update song status to "pending_validation" (or keep published if admin editing)
+      console.log("Updating song status...");
+      const { data: statusData, error: statusError } = await supabase
         .from("songs")
         .update({ status: "pending_validation" })
-        .eq("id", songId);
+        .eq("id", songId)
+        .select();
+
+      console.log("Status update result:", { data: statusData, error: statusError });
 
       if (statusError) {
         console.error("Status update error:", statusError);
+        // Don't fail the whole save for status update error
+        console.warn("Continuing despite status update error");
       }
 
+      console.log("Save completed successfully!");
       setSuccess("Synchronisation enregistrée avec succès !");
       setIsSyncing(false);
       setIsSaving(false);
-    } catch (err) {
-      console.error("Save error:", err);
-      setError("Erreur inattendue lors de la sauvegarde");
+    } catch (err: any) {
+      console.error("Save error caught:", err);
+      setError("Erreur inattendue lors de la sauvegarde: " + (err.message || "Erreur inconnue"));
       setIsSaving(false);
     }
   }, [songId, syncedLyrics, supabase, user?.id]);
