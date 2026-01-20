@@ -46,11 +46,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
+    // Validate file size (Vercel limit: 4.5MB for free plan, but we'll limit to 10MB for safety)
+    const maxSize = 10 * 1024 * 1024; // 10MB limit
+    if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'Le fichier ne doit pas dépasser 50 Mo' },
-        { status: 400 }
+        { error: `Le fichier ne doit pas dépasser ${Math.round(maxSize / 1024 / 1024)} Mo (limite d'hébergement)` },
+        { status: 413 }
       );
     }
 

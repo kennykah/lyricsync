@@ -41,9 +41,10 @@ export default function UploadPage() {
         setError("Veuillez sélectionner un fichier audio valide.");
         return;
       }
-      // Validate file size (max 50MB)
-      if (file.size > 50 * 1024 * 1024) {
-        setError("Le fichier audio ne doit pas dépasser 50 Mo.");
+      // Validate file size (Vercel limit: 4.5MB for free plan, but we'll limit to 10MB for safety)
+      const maxSize = 10 * 1024 * 1024; // 10MB limit for Vercel
+      if (file.size > maxSize) {
+        setError(`Le fichier audio ne doit pas dépasser ${Math.round(maxSize / 1024 / 1024)} Mo pour les limites de l'hébergement.`);
         return;
       }
       setAudioFile(file);
@@ -364,7 +365,7 @@ export default function UploadPage() {
                       {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} Mo)
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-gray-400">Maximum 50 Mo</p>
+                  <p className="mt-1 text-xs text-gray-400">Maximum 10 Mo (limite d'hébergement)</p>
                 </div>
               ) : (
                 <div>
