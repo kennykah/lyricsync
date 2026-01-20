@@ -7,16 +7,14 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { Upload, Music, AlertCircle, CheckCircle, ArrowLeft, Youtube } from "lucide-react";
+import { Upload, Music, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function UploadPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   
-  const [uploadMode, setUploadMode] = useState<'file' | 'youtube'>('file');
   const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -59,22 +57,15 @@ export default function UploadPage() {
     setSuccess("");
     setUploadProgress(0);
 
-    // Validation commune
-    if (!title || !artist || !lyrics) {
-      setError("Veuillez remplir tous les champs obligatoires.");
-      setIsLoading(false);
-      return;
-    }
-
-    // Validation spécifique au mode
-    if (uploadMode === 'file' && !audioFile) {
+    // Validation
+    if (!audioFile) {
       setError("Veuillez sélectionner un fichier audio.");
       setIsLoading(false);
       return;
     }
 
-    if (uploadMode === 'youtube' && !youtubeUrl) {
-      setError("Veuillez saisir une URL YouTube valide.");
+    if (!title || !artist || !lyrics) {
+      setError("Veuillez remplir tous les champs obligatoires.");
       setIsLoading(false);
       return;
     }
@@ -83,110 +74,57 @@ export default function UploadPage() {
       setUploadProgress(10);
 
       const formData = new FormData();
+      formData.append('file', audioFile);
+      formData.append('title', title);
+      formData.append('artist', artist);
+      formData.append('album', album || '');
+      formData.append('lyrics', lyrics);
 
-      if (uploadMode === 'file' && audioFile) {
-        // Mode fichier traditionnel
-        formData.append('file', audioFile);
-        formData.append('title', title);
-        formData.append('artist', artist);
-        formData.append('album', album || '');
-        formData.append('lyrics', lyrics);
+      setUploadProgress(20);
 
-        setUploadProgress(20);
+      console.log("Starting file upload via API...", {
+        fileName: audioFile.name,
+        fileSize: audioFile.size,
+        title,
+        artist
+      });
 
-        console.log("Starting file upload via API...", {
-          fileName: audioFile.name,
-          fileSize: audioFile.size,
-          title,
-          artist
-        });
+      // Upload via API route
+      const response = await fetch('/api/v1/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-        // Upload via API route standard
-        const response = await fetch('/api/v1/upload', {
-          method: 'POST',
-          body: formData,
-        });
+      setUploadProgress(80);
 
-        setUploadProgress(80);
+      const result = await response.json();
 
-        const result = await response.json();
+      console.log("Upload result:", result);
 
-        console.log("Upload result:", result);
-
-        if (!response.ok) {
-          setError(result.error || "Erreur lors de l'upload");
-          setIsLoading(false);
-          return;
-        }
-
-        setUploadProgress(100);
-        setSuccess("Chanson uploadée avec succès ! Redirection vers la synchronisation...");
-
-        // Reset form
-        setAudioFile(null);
-        setLyrics("");
-        setTitle("");
-        setArtist("");
-        setAlbum("");
-
-        // Redirect to sync page
-        setTimeout(() => {
-          if (result.song?.id) {
-            router.push(`/sync/${result.song.id}`);
-          } else {
-            router.push("/dashboard");
-          }
-        }, 1500);
-
-      } else if (uploadMode === 'youtube') {
-        // Mode YouTube - à implémenter plus tard
-        formData.append('youtubeUrl', youtubeUrl);
-        formData.append('title', title);
-        formData.append('artist', artist);
-        formData.append('album', album || '');
-        formData.append('lyrics', lyrics);
-
-        setUploadProgress(30);
-
-        console.log("Starting YouTube import...", { youtubeUrl, title, artist });
-
-        // TODO: Créer l'API route YouTube
-        const response = await fetch('/api/v1/youtube', {
-          method: 'POST',
-          body: formData,
-        });
-
-        setUploadProgress(90);
-
-        const result = await response.json();
-
-        console.log("YouTube import result:", result);
-
-        if (!response.ok) {
-          setError(result.error || "Erreur lors de l'import YouTube");
-          setIsLoading(false);
-          return;
-        }
-
-        setUploadProgress(100);
-        setSuccess("Vidéo YouTube importée avec succès ! Redirection vers la synchronisation...");
-
-        // Reset form
-        setYoutubeUrl("");
-        setLyrics("");
-        setTitle("");
-        setArtist("");
-        setAlbum("");
-
-        // Redirect to sync page
-        setTimeout(() => {
-          if (result.song?.id) {
-            router.push(`/sync/${result.song.id}`);
-          } else {
-            router.push("/dashboard");
-          }
-        }, 1500);
+      if (!response.ok) {
+        setError(result.error || "Erreur lors de l'upload");
+        setIsLoading(false);
+        return;
       }
+
+      setUploadProgress(100);
+      setSuccess("Chanson uploadée avec succès ! Redirection vers la synchronisation...");
+
+      // Reset form
+      setAudioFile(null);
+      setLyrics("");
+      setTitle("");
+      setArtist("");
+      setAlbum("");
+
+      // Redirect to sync page
+      setTimeout(() => {
+        if (result.song?.id) {
+          router.push(`/sync/${result.song.id}`);
+        } else {
+          router.push("/dashboard");
+        }
+      }, 1500);
 
     } catch (err) {
       console.error("Upload error:", err);
@@ -224,57 +162,12 @@ export default function UploadPage() {
 
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mb-4">
-            {uploadMode === 'youtube' ? (
-              <Youtube className="h-8 w-8 text-red-600" />
-            ) : (
-              <Upload className="h-8 w-8 text-purple-600" />
-            )}
+            <Upload className="h-8 w-8 text-purple-600" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">
-            {uploadMode === 'youtube' ? 'Importer depuis YouTube' : 'Uploader une chanson'}
-          </h2>
+          <h2 className="text-3xl font-bold text-gray-900">Uploader une chanson</h2>
           <p className="mt-2 text-gray-600">
-            {uploadMode === 'youtube'
-              ? 'Collez une URL YouTube pour extraire l\'audio automatiquement'
-              : 'Ajoutez un fichier audio et ses paroles pour commencer la synchronisation'
-            }
+            Ajoutez un fichier audio et ses paroles pour commencer la synchronisation
           </p>
-
-          {/* Mode Toggle */}
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <button
-              onClick={() => {
-                setUploadMode('file');
-                setAudioFile(null);
-                setYoutubeUrl("");
-                setError("");
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                uploadMode === 'file'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Upload className="h-4 w-4" />
-              Fichier audio
-            </button>
-            <button
-              onClick={() => {
-                setUploadMode('youtube');
-                setAudioFile(null);
-                setYoutubeUrl("");
-                setError("");
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                uploadMode === 'youtube'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Youtube className="h-4 w-4" />
-              YouTube
-            </button>
-          </div>
         </div>
 
         <Card>
@@ -343,48 +236,29 @@ export default function UploadPage() {
                 disabled={isLoading}
               />
 
-              {/* File input or YouTube URL */}
-              {uploadMode === 'file' ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fichier audio (mp3, wav...) *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleAudioChange}
-                      required
-                      disabled={isLoading}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 cursor-pointer border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  {audioFile && (
-                    <p className="mt-1 text-sm text-gray-500 flex items-center gap-1">
-                      <Music className="h-4 w-4" />
-                      {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} Mo)
-                    </p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-400">Maximum 10 Mo (limite d'hébergement)</p>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    URL YouTube *
-                  </label>
-                  <Input
-                    type="url"
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
+              {/* File input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fichier audio (mp3, wav...) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleAudioChange}
                     required
                     disabled={isLoading}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 cursor-pointer border border-gray-300 rounded-lg"
                   />
-                  <p className="mt-1 text-xs text-gray-400">
-                    L'audio sera automatiquement extrait de la vidéo YouTube
-                  </p>
                 </div>
-              )}
+                {audioFile && (
+                  <p className="mt-1 text-sm text-gray-500 flex items-center gap-1">
+                    <Music className="h-4 w-4" />
+                    {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} Mo)
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-400">Maximum 10 Mo (limite d'hébergement)</p>
+              </div>
 
               {/* Lyrics textarea */}
               <div>
@@ -410,9 +284,9 @@ export default function UploadPage() {
                 className="w-full"
                 size="lg"
                 isLoading={isLoading}
-                disabled={isLoading || (uploadMode === 'file' && !audioFile) || (uploadMode === 'youtube' && !youtubeUrl) || !title || !artist || !lyrics}
+                disabled={isLoading || !audioFile || !title || !artist || !lyrics}
               >
-                {isLoading ? (uploadMode === 'youtube' ? "Import en cours..." : "Upload en cours...") : (uploadMode === 'youtube' ? "Importer et synchroniser" : "Uploader et synchroniser")}
+                {isLoading ? "Upload en cours..." : "Uploader et synchroniser"}
               </Button>
             </form>
           </CardContent>
