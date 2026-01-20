@@ -227,8 +227,9 @@ async function getYtmp3DownloadInfo(youtubeUrl: string): Promise<{
       }
     }
 
-    // If all APIs failed, throw error
-    throw new Error('All YouTube APIs are currently unavailable. Please try again later or use file upload instead.');
+    // If all APIs failed, suggest file upload
+    console.log('All YouTube APIs failed. This is normal as these services change frequently.');
+    throw new Error('Import YouTube temporairement indisponible. Veuillez utiliser l\'upload de fichier pour le moment. Cette fonctionnalité sera rétablie ultérieurement.');
 
   } catch (error: any) {
     console.error('YouTube API error:', error);
