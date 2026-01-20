@@ -311,53 +311,118 @@ export default function SongPlayerPage() {
             </Card>
           </div>
 
-          {/* Right: Lyrics */}
-          <div>
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center justify-between">
-                  <span>Paroles synchronisées</span>
-                  <span className="text-sm text-gray-500">
+          {/* Right: Lyrics - Apple Music Style */}
+          <div className="flex items-center justify-center">
+            <div className="w-full max-w-lg">
+              {/* Background with blur effect like Apple Music */}
+              <div
+                className="relative rounded-2xl overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 100%)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                }}
+              >
+                {/* Lyrics Display - Centered like Apple Music */}
+                <div className="relative min-h-[500px] flex flex-col items-center justify-center p-8">
+                  {!lyrics?.synced_lyrics ? (
+                    <div className="text-center">
+                      <Music className="h-20 w-20 text-white/50 mx-auto mb-6" />
+                      <p className="text-white/80 text-lg">
+                        Paroles non disponibles
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="relative w-full">
+                      {/* Previous lines - blurred and smaller with smooth transitions */}
+                      {lyrics.synced_lyrics
+                        .slice(Math.max(0, currentLineIndex - 2), currentLineIndex)
+                        .map((line, index) => {
+                          const actualIndex = Math.max(0, currentLineIndex - 2) + index;
+                          const distance = currentLineIndex - actualIndex;
+                          return (
+                            <div
+                              key={`prev-${actualIndex}`}
+                              className="text-center mb-6 transition-all duration-1000 ease-out"
+                              style={{
+                                opacity: Math.max(0.1, 0.4 - (distance * 0.1)),
+                                transform: `scale(${Math.max(0.75, 0.85 - (distance * 0.05))}) translateY(${-20 - (distance * 5)}px)`,
+                                filter: `blur(${distance * 0.8}px)`,
+                                transitionDelay: `${index * 50}ms`
+                              }}
+                            >
+                              <p className="text-white/50 text-base font-light tracking-wide leading-relaxed">
+                                {line.text}
+                              </p>
+                            </div>
+                          );
+                        })}
+
+                      {/* Current line - highlighted and large with smooth entrance */}
+                      {currentLineIndex >= 0 && currentLineIndex < lyrics.synced_lyrics.length && (
+                        <div
+                          className="text-center mb-12 transition-all duration-700 ease-out"
+                          style={{
+                            opacity: 1,
+                            transform: 'scale(1.15) translateY(0px)',
+                            filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.3))'
+                          }}
+                        >
+                          <p className="text-white text-4xl font-medium leading-relaxed mb-6 tracking-wide">
+                            {lyrics.synced_lyrics[currentLineIndex].text}
+                          </p>
+                          {/* Progress indicator - elegant and smooth */}
+                          <div className="w-full max-w-sm mx-auto bg-white/5 rounded-full h-1 overflow-hidden backdrop-blur-sm">
+                            <div
+                              className="bg-gradient-to-r from-white/80 to-white rounded-full h-full transition-all duration-150 ease-linear shadow-lg"
+                              style={{
+                                width: currentLineIndex < lyrics.synced_lyrics.length - 1
+                                  ? `${((currentTime - lyrics.synced_lyrics[currentLineIndex].time) /
+                                      (lyrics.synced_lyrics[currentLineIndex + 1].time - lyrics.synced_lyrics[currentLineIndex].time)) * 100}%`
+                                  : '100%',
+                                boxShadow: '0 0 10px rgba(255,255,255,0.5)'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Next lines - cascading visibility with smooth transitions */}
+                      {lyrics.synced_lyrics
+                        .slice(currentLineIndex + 1, currentLineIndex + 5)
+                        .map((line, index) => {
+                          const actualIndex = currentLineIndex + 1 + index;
+                          const distance = index + 1;
+                          return (
+                            <div
+                              key={`next-${actualIndex}`}
+                              className="text-center mb-5 transition-all duration-1200 ease-out"
+                              style={{
+                                opacity: Math.max(0.08, 0.45 - (distance * 0.08)),
+                                transform: `scale(${Math.max(0.6, 0.8 - (distance * 0.06))}) translateY(${15 + (distance * 10)}px)`,
+                                filter: `blur(${distance * 0.6}px)`,
+                                transitionDelay: `${(index + 1) * 100}ms`
+                              }}
+                            >
+                              <p className="text-white/40 text-lg font-light tracking-wide leading-relaxed">
+                                {line.text}
+                              </p>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Time indicator - more elegant */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                  <span className="text-white/70 text-sm font-mono bg-black/30 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                     {formatTime(currentTime)}
                   </span>
-                </h3>
-
-                {!lyrics?.synced_lyrics ? (
-                  <div className="text-center py-12">
-                    <Music className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">
-                      Les paroles ne sont pas encore synchronisées pour cette chanson.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="max-h-[600px] overflow-y-auto space-y-2 pr-2">
-                    {lyrics.synced_lyrics.map((line, index) => (
-                      <div
-                        key={index}
-                        id={`line-${index}`}
-                        className={`p-3 rounded-lg transition-all duration-300 ${
-                          index === currentLineIndex
-                            ? "bg-purple-100 text-purple-900 font-semibold border-l-4 border-purple-500 scale-[1.02]"
-                            : index < currentLineIndex
-                            ? "bg-green-50 text-green-700 border-l-4 border-green-500"
-                            : "text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-400 font-mono min-w-[50px]">
-                            {formatTime(line.time)}
-                          </span>
-                          <span className="flex-1">{line.text}</span>
-                          {index === currentLineIndex && (
-                            <Play className="h-4 w-4 text-purple-600 animate-pulse" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
