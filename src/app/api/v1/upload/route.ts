@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     const artist = formData.get('artist') as string | null;
     const album = formData.get('album') as string | null;
     const lyrics = formData.get('lyrics') as string | null;
+    const inputMode = formData.get('inputMode') as string | null;
 
     // Validate required fields
     if (!file) {
@@ -99,6 +100,27 @@ export async function POST(request: NextRequest) {
     // Generate slug
     const slug = `${sanitizedTitle}-${Date.now()}`;
 
+    // Determine song status and process based on input mode
+    let songStatus = 'draft';
+    let syncedLyrics = null;
+
+    if (inputMode === 'lrc') {
+      // Parse LRC file and create synchronized lyrics
+      console.log('Processing LRC file...');
+      syncedLyrics = parseLRCContent(lyrics);
+
+      if (syncedLyrics && syncedLyrics.length > 0) {
+        // If LRC parsing successful, song can be published directly (or go to validation)
+        songStatus = 'pending_validation'; // Let validators check the sync quality
+        console.log(`Parsed ${syncedLyrics.length} synchronized lines from LRC`);
+      } else {
+        return NextResponse.json(
+          { error: 'Erreur lors du parsing du fichier LRC. Vérifiez le format.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Insert song into database
     const { data: songData, error: dbError } = await supabase
       .from('songs')
@@ -109,8 +131,8 @@ export async function POST(request: NextRequest) {
           artist_name: artist,
           album: album || null,
           audio_url: audioUrl,
-          lyrics_text: lyrics,
-          status: 'draft',
+          lyrics_text: inputMode === 'lrc' ? extractPlainLyrics(lyrics) : lyrics,
+          status: songStatus,
           submitted_by: user.id,
         },
       ])
@@ -119,20 +141,63 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error('Database error:', dbError);
-      
+
       // Try to delete the uploaded file
       await supabase.storage.from('audio').remove([fileName]);
-      
+
       return NextResponse.json(
         { error: `Erreur base de données: ${dbError.message}` },
         { status: 500 }
       );
     }
 
+    // If we have synchronized lyrics (from LRC), save them
+    if (syncedLyrics && syncedLyrics.length > 0) {
+      console.log('Saving synchronized lyrics...');
+
+      // Generate LRC raw format
+      const lrcRaw = syncedLyrics
+        .map((line) => {
+          const mins = Math.floor(line.time / 60);
+          const secs = (line.time % 60).toFixed(2).padStart(5, "0");
+          return `[${mins.toString().padStart(2, "0")}:${secs}]${line.text}`;
+        })
+        .join("\n");
+
+      const { error: lrcError } = await supabase
+        .from('lrc_files')
+        .insert([
+          {
+            song_id: songData.id,
+            synced_lyrics: syncedLyrics,
+            lrc_raw: lrcRaw,
+            source: 'lrc_import',
+            created_by: user.id,
+            validated_by: null, // Will be set during validation
+            validated_at: null,
+          },
+        ]);
+
+      if (lrcError) {
+        console.error('LRC save error:', lrcError);
+
+        // Don't fail the whole upload for LRC error, but log it
+        console.warn('Continuing without LRC data due to save error');
+      } else {
+        console.log('Synchronized lyrics saved successfully');
+      }
+    }
+
+    const successMessage = inputMode === 'lrc'
+      ? 'Fichier LRC importé avec succès. En attente de validation.'
+      : 'Chanson uploadée avec succès';
+
     return NextResponse.json({
       success: true,
       song: songData,
-      message: 'Chanson uploadée avec succès',
+      message: successMessage,
+      inputMode,
+      syncedLinesCount: syncedLyrics?.length || 0
     });
 
   } catch (error) {
@@ -141,5 +206,83 @@ export async function POST(request: NextRequest) {
       { error: 'Erreur serveur inattendue' },
       { status: 500 }
     );
+  }
+}
+
+// Parse LRC content and extract synchronized lyrics
+function parseLRCContent(lrcContent: string): Array<{ time: number; text: string }> | null {
+  try {
+    const lines = lrcContent.split('\n');
+    const syncedLyrics: Array<{ time: number; text: string }> = [];
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine || trimmedLine.startsWith('[ti:') || trimmedLine.startsWith('[ar:') ||
+          trimmedLine.startsWith('[al:') || trimmedLine.startsWith('[by:') ||
+          trimmedLine.startsWith('[offset:') || !trimmedLine.includes(']')) {
+        continue; // Skip metadata and empty lines
+      }
+
+      // Extract timestamps and text
+      const timestampMatches = trimmedLine.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\]/g);
+      if (timestampMatches && timestampMatches.length > 0) {
+        // Use the first timestamp for this line
+        const timestampMatch = timestampMatches[0].match(/\[(\d{2}):(\d{2})\.(\d{2,3})\]/);
+        if (timestampMatch) {
+          const minutes = parseInt(timestampMatch[1], 10);
+          const seconds = parseInt(timestampMatch[2], 10);
+          const milliseconds = parseInt(timestampMatch[3].padEnd(3, '0'), 10);
+
+          const time = minutes * 60 + seconds + milliseconds / 1000;
+
+          // Extract text after the timestamp
+          const textStart = trimmedLine.indexOf(']') + 1;
+          const text = trimmedLine.substring(textStart).trim();
+
+          if (text) {
+            syncedLyrics.push({ time, text });
+          }
+        }
+      }
+    }
+
+    // Sort by time
+    syncedLyrics.sort((a, b) => a.time - b.time);
+
+    return syncedLyrics.length > 0 ? syncedLyrics : null;
+  } catch (error) {
+    console.error('LRC parsing error:', error);
+    return null;
+  }
+}
+
+// Extract plain lyrics text from LRC content (without timestamps)
+function extractPlainLyrics(lrcContent: string): string {
+  try {
+    const lines = lrcContent.split('\n');
+    const plainLines: string[] = [];
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine || trimmedLine.startsWith('[ti:') || trimmedLine.startsWith('[ar:') ||
+          trimmedLine.startsWith('[al:') || trimmedLine.startsWith('[by:') ||
+          trimmedLine.startsWith('[offset:')) {
+        continue; // Skip metadata
+      }
+
+      // Extract text after timestamps
+      const textStart = trimmedLine.lastIndexOf(']');
+      if (textStart !== -1 && textStart < trimmedLine.length - 1) {
+        const text = trimmedLine.substring(textStart + 1).trim();
+        if (text) {
+          plainLines.push(text);
+        }
+      }
+    }
+
+    return plainLines.join('\n');
+  } catch (error) {
+    console.error('Plain lyrics extraction error:', error);
+    return lrcContent; // Fallback to original content
   }
 }

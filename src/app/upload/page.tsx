@@ -7,14 +7,16 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { Upload, Music, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
+import { Upload, Music, AlertCircle, CheckCircle, ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
 
 export default function UploadPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   
+  const [inputMode, setInputMode] = useState<'lyrics' | 'lrc'>('lyrics');
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [lrcFile, setLrcFile] = useState<File | null>(null);
   const [lyrics, setLyrics] = useState("");
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -50,6 +52,25 @@ export default function UploadPage() {
     }
   };
 
+  const handleLrcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith('.lrc')) {
+        setError("Veuillez sélectionner un fichier LRC valide (.lrc).");
+        return;
+      }
+      // Validate file size (max 1MB for LRC files)
+      const maxSize = 1 * 1024 * 1024; // 1MB limit for LRC
+      if (file.size > maxSize) {
+        setError("Le fichier LRC ne doit pas dépasser 1 Mo.");
+        return;
+      }
+      setLrcFile(file);
+      setError("");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -57,15 +78,28 @@ export default function UploadPage() {
     setSuccess("");
     setUploadProgress(0);
 
-    // Validation
+    // Validation commune
     if (!audioFile) {
       setError("Veuillez sélectionner un fichier audio.");
       setIsLoading(false);
       return;
     }
 
-    if (!title || !artist || !lyrics) {
+    if (!title || !artist) {
       setError("Veuillez remplir tous les champs obligatoires.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validation spécifique au mode
+    if (inputMode === 'lyrics' && !lyrics.trim()) {
+      setError("Veuillez saisir les paroles.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (inputMode === 'lrc' && !lrcFile) {
+      setError("Veuillez sélectionner un fichier LRC.");
       setIsLoading(false);
       return;
     }
@@ -78,13 +112,22 @@ export default function UploadPage() {
       formData.append('title', title);
       formData.append('artist', artist);
       formData.append('album', album || '');
-      formData.append('lyrics', lyrics);
+
+      if (inputMode === 'lyrics') {
+        formData.append('lyrics', lyrics);
+        formData.append('inputMode', 'lyrics');
+      } else {
+        // Pour les fichiers LRC, on lit le contenu et on l'envoie
+        const lrcContent = await lrcFile!.text();
+        formData.append('lyrics', lrcContent);
+        formData.append('inputMode', 'lrc');
+      }
 
       setUploadProgress(20);
 
-      console.log("Starting file upload via API...", {
+      console.log("Starting upload via API...", {
         fileName: audioFile.name,
-        fileSize: audioFile.size,
+        inputMode,
         title,
         artist
       });
@@ -108,19 +151,31 @@ export default function UploadPage() {
       }
 
       setUploadProgress(100);
-      setSuccess("Chanson uploadée avec succès ! Redirection vers la synchronisation...");
+
+      if (inputMode === 'lrc') {
+        setSuccess("Fichier LRC importé avec succès ! Publication immédiate en cours...");
+      } else {
+        setSuccess("Chanson uploadée avec succès ! Redirection vers la synchronisation...");
+      }
 
       // Reset form
       setAudioFile(null);
+      setLrcFile(null);
       setLyrics("");
       setTitle("");
       setArtist("");
       setAlbum("");
 
-      // Redirect to sync page
+      // Redirect based on mode
       setTimeout(() => {
         if (result.song?.id) {
-          router.push(`/sync/${result.song.id}`);
+          if (inputMode === 'lrc') {
+            // Pour LRC, aller directement à la page de lecture
+            router.push(`/song/${result.song.id}`);
+          } else {
+            // Pour les paroles manuelles, aller à la synchronisation
+            router.push(`/sync/${result.song.id}`);
+          }
         } else {
           router.push("/dashboard");
         }
@@ -162,12 +217,56 @@ export default function UploadPage() {
 
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mb-4">
-            <Upload className="h-8 w-8 text-purple-600" />
+            {inputMode === 'lrc' ? (
+              <FileText className="h-8 w-8 text-green-600" />
+            ) : (
+              <Upload className="h-8 w-8 text-purple-600" />
+            )}
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">Uploader une chanson</h2>
+          <h2 className="text-3xl font-bold text-gray-900">
+            {inputMode === 'lrc' ? 'Importer paroles synchronisées' : 'Uploader une chanson'}
+          </h2>
           <p className="mt-2 text-gray-600">
-            Ajoutez un fichier audio et ses paroles pour commencer la synchronisation
+            {inputMode === 'lrc'
+              ? 'Uploadez un fichier LRC déjà synchronisé pour publication immédiate'
+              : 'Ajoutez un fichier audio et ses paroles pour commencer la synchronisation'
+            }
           </p>
+
+          {/* Input Mode Toggle */}
+          <div className="flex items-center justify-center gap-4 mt-6">
+            <button
+              onClick={() => {
+                setInputMode('lyrics');
+                setLrcFile(null);
+                setLyrics("");
+                setError("");
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                inputMode === 'lyrics'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Upload className="h-4 w-4" />
+              Saisir paroles
+            </button>
+            <button
+              onClick={() => {
+                setInputMode('lrc');
+                setLyrics("");
+                setError("");
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                inputMode === 'lrc'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Fichier LRC
+            </button>
+          </div>
         </div>
 
         <Card>
@@ -236,7 +335,7 @@ export default function UploadPage() {
                 disabled={isLoading}
               />
 
-              {/* File input */}
+              {/* Audio file input - always required */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fichier audio (mp3, wav...) *
@@ -260,24 +359,51 @@ export default function UploadPage() {
                 <p className="mt-1 text-xs text-gray-400">Maximum 10 Mo (limite d'hébergement)</p>
               </div>
 
-              {/* Lyrics textarea */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Paroles *
-                </label>
-                <textarea
-                  className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  rows={10}
-                  value={lyrics}
-                  onChange={(e) => setLyrics(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  placeholder="Collez ou saisissez les paroles ici...&#10;&#10;Chaque ligne sera synchronisée individuellement."
-                />
-                <p className="mt-1 text-xs text-gray-400">
-                  {lyrics.split(/\r?\n/).filter(l => l.trim()).length} lignes détectées
-                </p>
-              </div>
+              {/* Lyrics input - different based on mode */}
+              {inputMode === 'lyrics' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Paroles *
+                  </label>
+                  <textarea
+                    className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    rows={10}
+                    value={lyrics}
+                    onChange={(e) => setLyrics(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    placeholder="Collez ou saisissez les paroles ici...&#10;&#10;Chaque ligne sera synchronisée individuellement."
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    {lyrics.split(/\r?\n/).filter(l => l.trim()).length} lignes détectées
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fichier LRC synchronisé *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".lrc"
+                      onChange={handleLrcChange}
+                      required
+                      disabled={isLoading}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-600 hover:file:bg-green-100 cursor-pointer border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  {lrcFile && (
+                    <p className="mt-1 text-sm text-gray-500 flex items-center gap-1">
+                      <FileText className="h-4 w-4" />
+                      {lrcFile.name} ({(lrcFile.size / 1024).toFixed(0)} Ko)
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-400">
+                    Fichier .lrc avec paroles déjà synchronisées (publication immédiate)
+                  </p>
+                </div>
+              )}
 
               <Button
                 type="submit"
