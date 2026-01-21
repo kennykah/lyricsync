@@ -52,10 +52,18 @@ Synchronisation intelligente de paroles musicales avec interface moderne et fonc
 
 ### Upload de fichiers audio
 1. Aller sur `/upload`
-2. Sélectionner "Fichier audio"
-3. Uploader un fichier MP3/WAV
-4. Ajouter les métadonnées et paroles
-5. Cliquer "Uploader et synchroniser"
+2. **Option 1 - Saisir paroles manuellement :**
+   - Sélectionner "Saisir paroles"
+   - Uploader un fichier MP3/WAV
+   - Ajouter les métadonnées et paroles
+   - Cliquer "Uploader et synchroniser"
+3. **Option 2 - Importer fichier LRC synchronisé :**
+   - Sélectionner "Fichier LRC"
+   - Uploader un fichier MP3/WAV
+   - Sélectionner un fichier .lrc synchronisé
+   - Ajouter les métadonnées
+   - Cliquer "Importer et synchroniser"
+   - La chanson sera automatiquement publiée après validation
 
 
 
