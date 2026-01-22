@@ -107,13 +107,21 @@ export async function POST(request: NextRequest) {
     if (inputMode === 'lrc') {
       // Parse LRC file and create synchronized lyrics
       console.log('Processing LRC file...');
+      console.log('Raw LRC content length:', lyrics?.length);
+      console.log('Raw LRC content (first 500 chars):', lyrics?.substring(0, 500));
+
       syncedLyrics = parseLRCContent(lyrics);
+
+      console.log('Parsed syncedLyrics result:', syncedLyrics);
+      console.log('Number of synced lines:', syncedLyrics?.length);
 
       if (syncedLyrics && syncedLyrics.length > 0) {
         // If LRC parsing successful, song can be published directly (or go to validation)
         songStatus = 'pending_validation'; // Let validators check the sync quality
         console.log(`Parsed ${syncedLyrics.length} synchronized lines from LRC`);
+        console.log('Sample synced lines:', syncedLyrics.slice(0, 3));
       } else {
+        console.error('LRC parsing failed - no synchronized lines found');
         return NextResponse.json(
           { error: 'Erreur lors du parsing du fichier LRC. Vérifiez le format.' },
           { status: 400 }

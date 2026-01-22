@@ -109,16 +109,22 @@ export default function SongPlayerPage() {
         setSong(songData);
 
         // Fetch synced lyrics
+        console.log("Fetching synced lyrics for song:", songId);
         const { data: lyricsData, error: lyricsError } = await supabase
           .from("lrc_files")
           .select("synced_lyrics, source, validated_by, validated_at")
           .eq("song_id", songId)
           .single();
 
+        console.log("Lyrics fetch result:", { data: lyricsData, error: lyricsError });
+
         if (lyricsError) {
           console.warn("No synced lyrics found:", lyricsError);
           setLyrics(null);
         } else {
+          console.log("Synced lyrics loaded:", lyricsData);
+          console.log("Number of synced lines:", lyricsData?.synced_lyrics?.length);
+          console.log("Sample synced lines:", lyricsData?.synced_lyrics?.slice(0, 3));
           setLyrics(lyricsData);
         }
 
