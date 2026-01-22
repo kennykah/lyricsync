@@ -108,9 +108,11 @@ export default function SongPlayerPage() {
 
         setSong(songData);
 
-        // Fetch synced lyrics
+        // Fetch synced lyrics - try multiple queries in case of RLS issues
         console.log("Fetching synced lyrics for song:", songId);
-        const { data: lyricsData, error: lyricsError } = await supabase
+
+        // First try the normal query
+        let { data: lyricsData, error: lyricsError } = await supabase
           .from("lrc_files")
           .select("synced_lyrics, source, validated_by, validated_at")
           .eq("song_id", songId)
@@ -118,7 +120,24 @@ export default function SongPlayerPage() {
 
         console.log("Lyrics fetch result:", { data: lyricsData, error: lyricsError });
 
-        if (lyricsError) {
+        // If no data found, try without .single() to see if there are multiple rows or RLS issues
+        if (lyricsError && lyricsError.code === 'PGRST116') {
+          console.log("Trying alternative query without .single()...");
+          const { data: lyricsArray, error: arrayError } = await supabase
+            .from("lrc_files")
+            .select("synced_lyrics, source, validated_by, validated_at")
+            .eq("song_id", songId);
+
+          console.log("Alternative query result:", { data: lyricsArray, error: arrayError });
+
+          if (!arrayError && lyricsArray && lyricsArray.length > 0) {
+            lyricsData = lyricsArray[0]; // Take the first one
+            lyricsError = null;
+            console.log("Using first LRC entry found");
+          }
+        }
+
+        if (lyricsError || !lyricsData) {
           console.warn("No synced lyrics found:", lyricsError);
           setLyrics(null);
         } else {
