@@ -12,7 +12,7 @@ import Link from "next/link";
 
 export default function UploadPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, profile, isLoading: authLoading } = useAuth();
   
   const [inputMode, setInputMode] = useState<'lyrics' | 'lrc'>('lyrics');
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -166,15 +166,20 @@ export default function UploadPage() {
       setArtist("");
       setAlbum("");
 
-      // Redirect based on mode
+      // Redirect based on mode and user role
       setTimeout(() => {
         if (result.song?.id) {
-          if (inputMode === 'lrc') {
-            // Pour LRC, aller directement à la page de lecture
-            router.push(`/song/${result.song.id}`);
-          } else {
+          if (inputMode === 'lyrics') {
             // Pour les paroles manuelles, aller à la synchronisation
             router.push(`/sync/${result.song.id}`);
+          } else {
+            // Pour LRC, aller à la page de lecture si admin/validateur, sinon à la liste
+            const userRole = profile?.role;
+            if (userRole === 'admin' || userRole === 'validator') {
+              router.push(`/song/${result.song.id}`);
+            } else {
+              router.push("/songs");
+            }
           }
         } else {
           router.push("/dashboard");

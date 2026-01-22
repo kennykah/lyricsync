@@ -73,16 +73,35 @@ export default function SongPlayerPage() {
       setError("");
 
       try {
+        // Check if user is admin/validator to allow viewing pending songs
+        const isAdminOrValidator = profile?.role === 'admin' || profile?.role === 'validator';
+
         // Fetch song
-        const { data: songData, error: songError } = await supabase
+        let query = supabase
           .from("songs")
           .select("*")
-          .eq("id", songId)
-          .eq("status", "published")
-          .single();
+          .eq("id", songId);
+
+        // If not admin/validator, only show published songs
+        if (!isAdminOrValidator) {
+          query = query.eq("status", "published");
+        }
+
+        const { data: songData, error: songError } = await query.single();
 
         if (songError || !songData) {
-          setError("Chanson introuvable ou non publiée");
+          if (!isAdminOrValidator && songError?.code === 'PGRST116') {
+            setError("Chanson en attente de validation par les modérateurs");
+          } else {
+            setError("Chanson introuvable");
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // If song is pending validation and user is not admin/validator, show message
+        if (songData.status === 'pending_validation' && !isAdminOrValidator) {
+          setError("Cette chanson est en attente de validation par les modérateurs");
           setIsLoading(false);
           return;
         }
