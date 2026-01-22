@@ -410,7 +410,14 @@ export default function UploadPage() {
                 className="w-full"
                 size="lg"
                 isLoading={isLoading}
-                disabled={isLoading || !audioFile || !title || !artist || !lyrics}
+                disabled={
+                  isLoading ||
+                  !audioFile ||
+                  !title ||
+                  !artist ||
+                  (inputMode === 'lyrics' && !lyrics.trim()) ||
+                  (inputMode === 'lrc' && !lrcFile)
+                }
               >
                 {isLoading ? "Upload en cours..." : "Uploader et synchroniser"}
               </Button>
