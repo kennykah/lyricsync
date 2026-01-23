@@ -153,7 +153,7 @@ export default function UploadPage() {
       setUploadProgress(100);
 
       if (inputMode === 'lrc') {
-        setSuccess("Fichier LRC importé avec succès ! Publication immédiate en cours...");
+        setSuccess("Fichier LRC importé avec succès ! Publication immédiate !");
       } else {
         setSuccess("Chanson uploadée avec succès ! Redirection vers la synchronisation...");
       }

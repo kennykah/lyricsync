@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
       console.log('Number of synced lines:', syncedLyrics?.length);
 
       if (syncedLyrics && syncedLyrics.length > 0) {
-        // If LRC parsing successful, song can be published directly (or go to validation)
-        songStatus = 'pending_validation'; // Let validators check the sync quality
+        // LRC files are pre-synchronized, so they can be published immediately
+        songStatus = 'published';
         console.log(`Parsed ${syncedLyrics.length} synchronized lines from LRC`);
         console.log('Sample synced lines:', syncedLyrics.slice(0, 3));
       } else {
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
     }
 
     const successMessage = inputMode === 'lrc'
-      ? 'Fichier LRC importé avec succès. En attente de validation.'
+      ? 'Fichier LRC importé avec succès. Publication immédiate !'
       : 'Chanson uploadée avec succès';
 
     return NextResponse.json({
