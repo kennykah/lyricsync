@@ -61,14 +61,14 @@ export async function POST(request: NextRequest) {
     const sanitizedTitle = title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
     const fileName = `${user.id}/${Date.now()}-${sanitizedTitle}.${fileExt}`;
 
-    // Convert File to ArrayBuffer then to Uint8Array for Supabase
+    // Convert File to ArrayBuffer then to Buffer for Supabase (Node server)
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    const uploadBuffer = Buffer.from(arrayBuffer);
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('audio')
-      .upload(fileName, uint8Array, {
+      .upload(fileName, uploadBuffer, {
         contentType: file.type,
         cacheControl: '3600',
         upsert: false,
@@ -112,14 +112,13 @@ export async function POST(request: NextRequest) {
 
       syncedLyrics = parseLRCContent(lyrics);
 
-      console.log('Parsed syncedLyrics result:', syncedLyrics);
+      console.log('Parsed syncedLyrics result (first 10):', syncedLyrics && syncedLyrics.slice(0, 10));
       console.log('Number of synced lines:', syncedLyrics?.length);
 
       if (syncedLyrics && syncedLyrics.length > 0) {
         // LRC files are pre-synchronized, so they can be published immediately
         songStatus = 'published';
         console.log(`Parsed ${syncedLyrics.length} synchronized lines from LRC`);
-        console.log('Sample synced lines:', syncedLyrics.slice(0, 3));
       } else {
         console.error('LRC parsing failed - no synchronized lines found');
         return NextResponse.json(
@@ -221,43 +220,44 @@ export async function POST(request: NextRequest) {
 function parseLRCContent(lrcContent: string): Array<{ time: number; text: string }> | null {
   try {
     const lines = lrcContent.split('\n');
-    const syncedLyrics: Array<{ time: number; text: string }> = [];
+      const syncedLyrics: Array<{ time: number; text: string }> = [];
 
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine || trimmedLine.startsWith('[ti:') || trimmedLine.startsWith('[ar:') ||
-          trimmedLine.startsWith('[al:') || trimmedLine.startsWith('[by:') ||
-          trimmedLine.startsWith('[offset:') || !trimmedLine.includes(']')) {
-        continue; // Skip metadata and empty lines
-      }
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || trimmedLine.startsWith('[ti:') || trimmedLine.startsWith('[ar:') ||
+            trimmedLine.startsWith('[al:') || trimmedLine.startsWith('[by:') ||
+            trimmedLine.startsWith('[offset:')) {
+          continue; // Skip metadata and empty lines
+        }
 
-      // Extract timestamps and text
-      const timestampMatches = trimmedLine.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\]/g);
-      if (timestampMatches && timestampMatches.length > 0) {
-        // Use the first timestamp for this line
-        const timestampMatch = timestampMatches[0].match(/\[(\d{2}):(\d{2})\.(\d{2,3})\]/);
-        if (timestampMatch) {
-          const minutes = parseInt(timestampMatch[1], 10);
-          const seconds = parseInt(timestampMatch[2], 10);
-          const milliseconds = parseInt(timestampMatch[3].padEnd(3, '0'), 10);
+        // Extract timestamps and text (more permissive regex: allow 1-2 digits minutes, optional fraction)
+        const timestampMatches = trimmedLine.match(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g);
+        if (timestampMatches && timestampMatches.length > 0) {
+          // Use the first timestamp for this line
+          const timestampMatch = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/.exec(timestampMatches[0]);
+          if (timestampMatch) {
+            const minutes = parseInt(timestampMatch[1], 10);
+            const seconds = parseInt(timestampMatch[2], 10);
+            const msPart = timestampMatch[3] || '0';
+            const milliseconds = parseInt(msPart.padEnd(3, '0'), 10);
 
-          const time = minutes * 60 + seconds + milliseconds / 1000;
+            const time = minutes * 60 + seconds + milliseconds / 1000;
 
-          // Extract text after the timestamp
-          const textStart = trimmedLine.indexOf(']') + 1;
-          const text = trimmedLine.substring(textStart).trim();
+            // Extract text after the last timestamp
+            const lastClose = trimmedLine.lastIndexOf(']');
+            const text = trimmedLine.substring(lastClose + 1).trim();
 
-          if (text) {
-            syncedLyrics.push({ time, text });
+            if (text) {
+              syncedLyrics.push({ time, text });
+            }
           }
         }
       }
-    }
 
-    // Sort by time
-    syncedLyrics.sort((a, b) => a.time - b.time);
+      // Sort by time
+      syncedLyrics.sort((a, b) => a.time - b.time);
 
-    return syncedLyrics.length > 0 ? syncedLyrics : null;
+      return syncedLyrics.length > 0 ? syncedLyrics : null;
   } catch (error) {
     console.error('LRC parsing error:', error);
     return null;
